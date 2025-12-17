@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Notifications Api
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /notification:
+    post:
+      summary: Send MQTT message
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRequest'
+
+components:
+  schemas:
+    NotificationRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Type of message to be sent
+          enum:
+            - PUSH
+            - MQTT
+            - EMAIL
+        message:
+          type: object
+      required:
+        - type
+        - message

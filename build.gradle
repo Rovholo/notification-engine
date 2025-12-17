@@ -1,0 +1,64 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.openapi.generator' version '7.5.0'
+}
+
+group = 'com.bitkulcha'
+version = '0.0.1-SNAPSHOT'
+description = 'Notification engine'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.integration:spring-integration-mqtt:6.2.0'
+	implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+	implementation "io.swagger.core.v3:swagger-annotations:2.2.15"
+	implementation "io.swagger.core.v3:swagger-models:2.2.15"
+	implementation "jakarta.validation:jakarta.validation-api:3.0.2"
+	implementation "org.hibernate.validator:hibernate-validator:8.0.1.Final"
+	implementation "org.openapitools:jackson-databind-nullable:0.2.6"
+	implementation 'com.google.firebase:firebase-admin:9.7.0'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	compileOnly "org.immutables:value:2.10.1"
+	annotationProcessor "org.immutables:value:2.10.1"
+}
+
+openApiGenerate {
+	generatorName = "spring"
+	inputSpec = "$rootDir/src/main/resources/swagger/notificationsApi.yml"
+	outputDir = "$rootDir/build/generated"
+	apiPackage = "com.bitkulcha.notification_engine.api"
+	modelPackage = "com.bitkulcha.notification_engine.model"
+	configOptions = [
+			interfaceOnly: "true",
+			skipDefaultInterface: "true",
+			useJakartaEe: "true"
+	]
+}
+
+sourceSets {
+	main {
+		java {
+			srcDir "$rootDir/build/generated/src/main/java"
+		}
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+compileJava.dependsOn tasks.openApiGenerate

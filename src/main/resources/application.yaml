@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: notification-engine
+
+server:
+  servlet:
+    context-path: /api
+
+logging:
+  level:
+    com:
+      bitkulcha:
+        notification_engine: ${LOG_LEVEL:DEBUG}
