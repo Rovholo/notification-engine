@@ -61,6 +61,13 @@ bootJar {
 	archiveFileName = "app.jar"
 }
 
+tasks.named("bootJar") {
+	doLast {
+		println "Built JAR: ${archiveFile.get().asFile.absolutePath}"
+	}
+}
+
+
 tasks.register('stage') {
 	dependsOn['bootJar']
 }
