@@ -57,6 +57,10 @@ sourceSets {
 	}
 }
 
+tasks.register('stage') {
+	dependsOn['bootJar']
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 }
