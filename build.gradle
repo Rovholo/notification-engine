@@ -60,10 +60,18 @@ sourceSets {
 bootJar {
 	archiveFileName = "app.jar"
 }
+//
+//
+//tasks.register('stage') {
+//	dependsOn['bootJar']
+//}
 
+tasks.bootJar {
+	archiveClassifier.set("boot")
+}
 
-tasks.register('stage') {
-	dependsOn['boot']
+tasks.jar {
+	archiveClassifier.set("")
 }
 
 tasks.named('test') {
