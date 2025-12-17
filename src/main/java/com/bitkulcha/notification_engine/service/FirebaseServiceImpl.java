@@ -40,9 +40,12 @@ public class FirebaseServiceImpl implements FirebaseService {
         try {
             log.debug("Message received from topic: {} {}", topic, value);
             Map map = objectMapper.readValue((String) value, Map.class);
-            if (map.get("old") != null) {
+            String[] topicSplit = topic.split("/");
+            if (topicSplit.length > 2
+                    && topicSplit[2].equalsIgnoreCase("reaction")
+                    && map.get("old") != null) {
                 PushMessageDto messageDto = PushMessageDtoImmtbl.builder()
-                        .topic(topic.split("/")[1])
+                        .topic(topicSplit[1])
                         .title("")
                         .body("")
                         .notification(NotificationImmtbl.builder()

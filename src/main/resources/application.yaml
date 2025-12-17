@@ -10,4 +10,4 @@ logging:
   level:
     com:
       bitkulcha:
-        notification_engine: ${LOG_LEVEL:DEBUG}
+        notification_engine: ${LOG_LEVEL:INFO}
