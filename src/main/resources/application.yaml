@@ -11,3 +11,6 @@ logging:
     com:
       bitkulcha:
         notification_engine: ${LOG_LEVEL:INFO}
+
+firebase:
+  credential: ${FIREBASE_CREDENTIAL}
