@@ -3,8 +3,6 @@ package com.bitkulcha.notification_engine.config;
 import com.bitkulcha.notification_engine.dto.BrokerDto;
 import com.bitkulcha.notification_engine.dto.BrokerDtoImmtbl;
 import com.bitkulcha.notification_engine.service.FirebaseService;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +22,6 @@ import org.springframework.messaging.MessageHandler;
 public class MqttConfig {
     private static final String CLIENT_ID_SUB = "springBootSubClient";
     private static final String CLIENT_ID_PUB = "springBootPubClient";
-    private static final Logger log = LogManager.getLogger(MqttConfig.class);
 
     private final FirebaseService firebaseService;
 
@@ -46,7 +43,10 @@ public class MqttConfig {
         MqttConnectOptions options = new MqttConnectOptions();
         options.setServerURIs(new String[] {"ssl://" + brokerDto.getServer() + ":8883"});
         options.setUserName(brokerDto.getUsername());
-        options.setPassword(brokerDto .getPassword().toCharArray());
+        options.setPassword(brokerDto.getPassword().toCharArray());
+        options.setAutomaticReconnect(true);
+        options.setKeepAliveInterval(30);
+        options.setConnectionTimeout(60);
 
         DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
         factory.setConnectionOptions(options);
@@ -63,10 +63,8 @@ public class MqttConfig {
     @ServiceActivator(inputChannel = "mqttInboundChannel")
     public MessageHandler inboundHandler() {
         return message -> {
-            log.debug("Message received {}", message);
             String topic = (String) message.getHeaders().get("mqtt_receivedTopic");
             firebaseService.handleMessage(topic, message.getPayload());
-
         };
     }
 
@@ -87,10 +85,9 @@ public class MqttConfig {
     @Bean
     @ServiceActivator(inputChannel = "mqttOutboundChannel")
     public MessageHandler outbound() {
-        MqttPahoMessageHandler handler =
-                new MqttPahoMessageHandler(CLIENT_ID_PUB, mqttClientFactory());
+        MqttPahoMessageHandler handler = new MqttPahoMessageHandler(CLIENT_ID_PUB, mqttClientFactory());
         handler.setAsync(true);
-        handler.setDefaultTopic("topic/test"); // default publish topic
+        handler.setDefaultTopic("topic/test");
         return handler;
     }
 

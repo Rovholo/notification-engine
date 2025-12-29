@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -23,15 +24,13 @@ public class FirebaseConfig {
 
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
-        GoogleCredentials credentials = GoogleCredentials.fromStream( new ByteArrayInputStream(firebaseCredential.getBytes()) );
-
-        FirebaseOptions options = FirebaseOptions.builder()
-                .setCredentials(credentials)
-                .build();
 
         if (FirebaseApp.getApps().isEmpty()) {
-            return FirebaseApp.initializeApp(options);
+            return FirebaseApp.initializeApp(FirebaseOptions.builder()
+                    .setCredentials(getCredentials())
+                    .build());
         }
+
         return FirebaseApp.getInstance();
     }
 
@@ -44,4 +43,13 @@ public class FirebaseConfig {
     public Firestore firestore(FirebaseApp firebaseApp) {
         return FirestoreClient.getFirestore(firebaseApp,"homeq");
     }
+
+    private GoogleCredentials getCredentials() throws IOException {
+        try {
+            return GoogleCredentials.fromStream(new ByteArrayInputStream(firebaseCredential.getBytes()));
+        } catch (IOException e) {
+            return GoogleCredentials.fromStream(new ClassPathResource(firebaseCredential).getInputStream());
+        }
+    }
+
 }

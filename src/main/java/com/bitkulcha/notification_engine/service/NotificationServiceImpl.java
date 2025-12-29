@@ -27,21 +27,30 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public NotificationRequest sendMessage(NotificationRequest body) {
-        if (body.getType().equals(NotificationRequest.TypeEnum.MQTT)) {
-            sendMqttMessage(objectMapper.convertValue(body.getMessage(), MqttMessageDto.class) );
-        } else if (body.getType().equals(NotificationRequest.TypeEnum.PUSH)) {
-            firebaseService.sendMessage(objectMapper.convertValue(body.getMessage(), PushMessageDto.class));
+        log.debug("Sending notification message: {}", body.getMessage());
+        switch (body.getType()) {
+            case NotificationRequest.TypeEnum.MQTT:
+                sendMqttMessage(objectMapper.convertValue(body.getMessage(), MqttMessageDto.class) );
+                break;
+            case NotificationRequest.TypeEnum.PUSH:
+                firebaseService.sendMessage(objectMapper.convertValue(body.getMessage(), PushMessageDto.class));
+                break;
+            default:
+                log.debug("No message type found");
         }
+        log.debug("Message sent");
         return body;
     }
 
     private void sendMqttMessage(MqttMessageDto mqttMessage) {
+        log.debug("Sending MQTT message: {}", mqttMessage.toString());
         try {
             mqttOutboundChannel.send(MessageBuilder
                     .withPayload(mqttMessage.getPayload())
                     .setHeader("mqtt_topic", mqttMessage.getTopic())
                     .build());
             firebaseService.getAllBrokers();
+            log.debug(" MQTT message sent to {}", mqttMessage.getTopic());
         } catch (Exception e) {
             log.error("Error while sending MQTT message", e);
             throw new RuntimeException(e);

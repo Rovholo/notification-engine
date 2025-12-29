@@ -38,7 +38,7 @@ public class FirebaseServiceImpl implements FirebaseService {
     @Override
     public void handleMessage(String topic, Object value) {
         try {
-            log.debug("Message received from topic: {} {}", topic, value);
+            log.debug("Message received : {} {}", topic, value);
             Map map = objectMapper.readValue((String) value, Map.class);
             String[] topicSplit = topic.split("/");
             if (topicSplit.length > 2
@@ -62,6 +62,7 @@ public class FirebaseServiceImpl implements FirebaseService {
 
     @Override
     public void sendMessage(PushMessageDto pushMessage) {
+        log.debug("send Push message: {}", pushMessage);
         try {
             Message msg = Message.builder()
                     .putData("title", pushMessage.getTitle())
@@ -73,6 +74,7 @@ public class FirebaseServiceImpl implements FirebaseService {
                             .build())
                     .build();
             firebaseMessaging.send(msg);
+            log.debug("push message sent to topic: {}", pushMessage.getTopic());
         } catch (Exception e) {
             log.error("Error while sending Firebase message", e);
             throw new RuntimeException("Error while sending Firebase message", e);

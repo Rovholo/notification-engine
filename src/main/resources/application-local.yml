@@ -3,3 +3,6 @@ logging:
     com:
       bitkulcha:
         notification_engine: DEBUG
+
+firebase:
+  credential: ${FIREBASE_CREDENTIAL:firebase-adminsdk.json}
