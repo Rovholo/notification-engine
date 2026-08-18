@@ -9,17 +9,15 @@ import com.google.cloud.firestore.Firestore;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class FirebaseServiceImpl implements FirebaseService {
-
-    private static final Logger log = LogManager.getLogger(FirebaseServiceImpl.class);
     private static final String BROKERS = "brokers";
     private static final String USERS = "users";
     private static final String USER_META = "user_meta";
@@ -56,7 +54,7 @@ public class FirebaseServiceImpl implements FirebaseService {
                 sendMessage(messageDto);
             }
         } catch (Exception e) {
-            log.error("Error handling message from topic: {} {} \n {}", topic,value, e);
+            log.error("Error handling message from topic: {} {} \n", topic, value, e);
         }
     }
 

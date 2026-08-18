@@ -23,17 +23,21 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.integration:spring-integration-mqtt:6.2.0'
 	implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
-	implementation "io.swagger.core.v3:swagger-annotations:2.2.15"
-	implementation "io.swagger.core.v3:swagger-models:2.2.15"
-	implementation "jakarta.validation:jakarta.validation-api:3.0.2"
-	implementation "org.hibernate.validator:hibernate-validator:8.0.1.Final"
-	implementation "org.openapitools:jackson-databind-nullable:0.2.6"
-	implementation 'com.google.firebase:firebase-admin:9.7.0'
+	implementation 'io.swagger.core.v3:swagger-annotations:2.2.15'
+	implementation 'io.swagger.core.v3:swagger-models:2.2.15'
+	implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
+	implementation 'org.hibernate.validator:hibernate-validator:8.0.1.Final'
+	implementation 'org.openapitools:jackson-databind-nullable:0.2.11'
+	implementation 'com.google.firebase:firebase-admin:9.10.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-	compileOnly "org.immutables:value:2.10.1"
-	annotationProcessor "org.immutables:value:2.10.1"
+	compileOnly 'org.immutables:value:2.10.1'
+	annotationProcessor 'org.immutables:value:2.10.1'
+	compileOnly 'org.projectlombok:lombok:1.18.46'
+	annotationProcessor 'org.projectlombok:lombok:1.18.46'
+	testCompileOnly 'org.projectlombok:lombok:1.18.46'
+	testAnnotationProcessor 'org.projectlombok:lombok:1.18.46'
 }
 
 openApiGenerate {
@@ -60,8 +64,7 @@ sourceSets {
 bootJar {
 	archiveFileName = "app.jar"
 }
-//
-//
+
 //tasks.register('stage') {
 //	dependsOn['bootJar']
 //}

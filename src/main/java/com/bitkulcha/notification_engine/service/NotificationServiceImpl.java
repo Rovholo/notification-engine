@@ -4,15 +4,15 @@ import com.bitkulcha.notification_engine.dto.MqttMessageDto;
 import com.bitkulcha.notification_engine.dto.PushMessageDto;
 import com.bitkulcha.notification_engine.model.NotificationRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.logging.log4j.LogManager;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class NotificationServiceImpl implements NotificationService {
-    private static final org.apache.logging.log4j.Logger log = LogManager.getLogger(NotificationServiceImpl.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final MessageChannel mqttOutboundChannel;
@@ -30,7 +30,7 @@ public class NotificationServiceImpl implements NotificationService {
         log.debug("Sending notification message: {}", body.getMessage());
         switch (body.getType()) {
             case NotificationRequest.TypeEnum.MQTT:
-                sendMqttMessage(objectMapper.convertValue(body.getMessage(), MqttMessageDto.class) );
+//                sendMqttMessage(objectMapper.convertValue(body.getMessage(), MqttMessageDto.class) );
                 break;
             case NotificationRequest.TypeEnum.PUSH:
                 firebaseService.sendMessage(objectMapper.convertValue(body.getMessage(), PushMessageDto.class));
