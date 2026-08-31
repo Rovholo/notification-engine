@@ -10,4 +10,6 @@ public interface FirebaseService {
 
     void sendMessage(PushMessageDto pushMessage);
     List<BrokerDto> getAllBrokers();
+
+    BrokerDto getBroker(String id);
 }

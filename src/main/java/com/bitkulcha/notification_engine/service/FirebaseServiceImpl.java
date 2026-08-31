@@ -4,7 +4,9 @@ import com.bitkulcha.notification_engine.dto.BrokerDto;
 import com.bitkulcha.notification_engine.dto.NotificationImmtbl;
 import com.bitkulcha.notification_engine.dto.PushMessageDto;
 import com.bitkulcha.notification_engine.dto.PushMessageDtoImmtbl;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
@@ -37,7 +39,7 @@ public class FirebaseServiceImpl implements FirebaseService {
     public void handleMessage(String topic, Object value) {
         try {
             log.debug("Message received : {} {}", topic, value);
-            Map map = objectMapper.readValue((String) value, Map.class);
+            Map<String, Object> map = objectMapper.readValue((String) value, new TypeReference<>() {});
             String[] topicSplit = topic.split("/");
             if (topicSplit.length > 2
                     && topicSplit[2].equalsIgnoreCase("reaction")
@@ -60,18 +62,20 @@ public class FirebaseServiceImpl implements FirebaseService {
 
     @Override
     public void sendMessage(PushMessageDto pushMessage) {
-        log.debug("send Push message: {}", pushMessage);
+        String title = pushMessage.getTitle();
+        String body = pushMessage.getBody();
+        PushMessageDto.Notification  notification = pushMessage.getNotification();
+        log.info("sendMessage: title={}, body={}, notification={}", title, body, notification);
         try {
-            Message msg = Message.builder()
-                    .putData("title", pushMessage.getTitle())
-                    .putData("body", pushMessage.getBody())
+            firebaseMessaging.send(Message.builder()
+                    .putData("title", title)
+                    .putData("body", body)
                     .setTopic(pushMessage.getTopic())
                     .setNotification(Notification.builder()
-                            .setTitle(pushMessage.getNotification().getTitle())
-                            .setBody(pushMessage.getNotification().getBody())
+                            .setTitle(notification.getTitle())
+                            .setBody(notification.getBody())
                             .build())
-                    .build();
-            firebaseMessaging.send(msg);
+                    .build());
             log.debug("push message sent to topic: {}", pushMessage.getTopic());
         } catch (Exception e) {
             log.error("Error while sending Firebase message", e);
@@ -82,6 +86,21 @@ public class FirebaseServiceImpl implements FirebaseService {
     @Override
     public List<BrokerDto> getAllBrokers() {
         return getDocs(BROKERS, BrokerDto.class);
+    }
+
+    @Override
+    public BrokerDto getBroker(String id) {
+        return getDoc(id, BROKERS, BrokerDto.class);
+    }
+
+    public <T> T getDoc(String id, String name, Class<T> valueType) {
+        try {
+            DocumentReference ref = firestore.collection(name).document(id);
+            return objectMapper.convertValue(ref.get().get().getData(), valueType);
+        } catch (Exception e) {
+            log.error("Error while getting document from Firebase for id: {}", id, e);
+            return null;
+        }
     }
 
     private <T> List<T>  getDocs(String name, Class<T> valueType) {

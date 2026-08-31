@@ -14,3 +14,6 @@ logging:
 
 firebase:
   credential: ${FIREBASE_CREDENTIAL}
+
+mqtt:
+  broker-id: ${BROKER_ID}

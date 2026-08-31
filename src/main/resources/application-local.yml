@@ -6,3 +6,6 @@ logging:
 
 firebase:
   credential: ${FIREBASE_CREDENTIAL:firebase-adminsdk.json}
+
+mqtt:
+  broker-id: test
