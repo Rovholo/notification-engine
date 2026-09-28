@@ -9,9 +9,13 @@ import org.immutables.value.Value;
 @JsonSerialize(as = PushMessageDtoImmtbl.class)
 public interface PushMessageDto {
     String getTopic();
-    String getTitle();
-    String getBody();
     Notification getNotification();
+    default String getTitle() {
+        return "";
+    }
+    default String getBody() {
+        return "";
+    }
 
     @Value.Immutable
     @JsonDeserialize(as = NotificationImmtbl.class)

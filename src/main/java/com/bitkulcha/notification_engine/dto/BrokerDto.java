@@ -8,7 +8,7 @@ import org.immutables.value.Value;
 @Value.Immutable
 @JsonDeserialize(as = BrokerDtoImmtbl.class)
 @JsonSerialize(as = BrokerDtoImmtbl.class)
-public interface BrokerDto {
+public interface BrokerDto extends FirebaseBaseDto<BrokerDto> {
     String getUsername();
     String getPassword();
     String getServer();

@@ -1,3 +1,5 @@
+import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.0'
@@ -40,17 +42,25 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok:1.18.46'
 }
 
-openApiGenerate {
-	generatorName = "spring"
-	inputSpec = "$rootDir/src/main/resources/swagger/notificationsApi.yml"
-	outputDir = "$rootDir/build/generated"
-	apiPackage = "com.bitkulcha.notification_engine.api"
-	modelPackage = "com.bitkulcha.notification_engine.model"
-	configOptions = [
-			interfaceOnly: "true",
-			skipDefaultInterface: "true",
-			useJakartaEe: "true"
-	]
+def swaggerDir = file("$rootDir/src/main/resources/swagger")
+File[] apiSpecs = swaggerDir.listFiles({ f -> f.name.endsWith(".yaml") } as FileFilter)
+apiSpecs.each { spec ->
+	tasks.register("${spec.name.replaceFirst(/\.yaml$/, "").capitalize()}ApiGenerate", GenerateTask) {
+		generatorName = "spring"
+		inputSpec = spec.absolutePath
+		outputDir = "$rootDir/build/generated/"
+		apiPackage = "com.bitkulcha.notification_engine.api"
+		modelPackage = "com.bitkulcha.notification_engine.model"
+		configOptions = [
+				interfaceOnly: "true",
+				skipDefaultInterface: "true",
+				useJakartaEe: "true"
+		]
+	}
+}
+
+tasks.register("openApiGenerateAll") {
+	dependsOn apiSpecs.collect { "${it.name.replaceFirst(/\.yaml$/, "").capitalize()}ApiGenerate" }
 }
 
 sourceSets {
@@ -81,4 +91,4 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
-compileJava.dependsOn tasks.openApiGenerate
+compileJava.dependsOn tasks.openApiGenerateAll

@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: HomeQ Api
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /homeq/user/houses/{userId}:
+    get:
+      summary: Send MQTT message
+      operationId: getUserHouses
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique ID of the user
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                    $ref: '#/components/schemas/House'
+
+  /homeq/house/resident:
+    post:
+      summary: add Resident to House
+      operationId: AddHouseResident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddResidentRequest'
+      responses:
+        '200':
+          description: Success
+
+components:
+  schemas:
+    AddResidentRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        homeId:
+          type: string
+      required:
+        - userId
+        - homeId
+
+    House:
+      type: object
+      required:
+        - name
+        - owners
+        - residents
+        - devices
+      properties:
+        name:
+          type: string
+          example: "Greenwood Manor"
+        owners:
+          type: array
+          description: A list of the house owners' names
+          items:
+            type: string
+          example: ["Alice Smith", "Bob Smith"]
+        residents:
+          type: array
+          description: A list of the current residents' names
+          items:
+            type: string
+          example: ["Charlie Smith"]
+        devices:
+          type: array
+          description: A list of registered smart home device IDs or names
+          items:
+            type: string
+          example: ["thermostat-01", "smart-lock-front"]
