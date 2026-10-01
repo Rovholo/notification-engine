@@ -4,6 +4,15 @@ logging:
       bitkulcha:
         notification_engine: DEBUG
 
+spring:
+  application:
+    name: notification-engine
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MariaDB;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
 firebase:
   credential: ${FIREBASE_CREDENTIAL:firebase-adminsdk.json}
 

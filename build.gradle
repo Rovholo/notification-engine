@@ -23,8 +23,11 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-liquibase'
 	implementation 'org.springframework.integration:spring-integration-mqtt:6.2.0'
 	implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+	implementation 'com.github.f4b6a3:uuid-creator:6.0.0'
 	implementation 'io.swagger.core.v3:swagger-annotations:2.2.15'
 	implementation 'io.swagger.core.v3:swagger-models:2.2.15'
 	implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
@@ -32,7 +35,10 @@ dependencies {
 	implementation 'org.openapitools:jackson-databind-nullable:0.2.11'
 	implementation 'com.google.firebase:firebase-admin:9.10.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+	runtimeOnly 'com.h2database:h2'
 
 	compileOnly 'org.immutables:value:2.10.1'
 	annotationProcessor 'org.immutables:value:2.10.1'

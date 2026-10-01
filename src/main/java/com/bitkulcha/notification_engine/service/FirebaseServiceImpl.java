@@ -121,7 +121,7 @@ public class FirebaseServiceImpl implements FirebaseService {
 
     @Override
     public List<String> getUserIds(String value) {
-        return getDocIds("email", value, USERS);
+        return getDocIds(USERS, "email", value);
     }
 
     @Override
@@ -139,7 +139,8 @@ public class FirebaseServiceImpl implements FirebaseService {
 
     private <T extends FirebaseBaseDto<T>> void updateDoc(String name, T data) {
         try {
-            firestore.document(name + "/" + data.getId()).set(data.withId(null), SetOptions.merge());
+            String id = data.getId().orElseThrow();
+            firestore.document(name + "/" + id).set(data, SetOptions.merge());
         } catch (Exception e) {
             log.error("Error while updating Firebase document", e);
             throw new RuntimeException("Error while updating Firebase document", e);

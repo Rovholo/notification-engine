@@ -23,7 +23,7 @@ public class HomeQController implements HomeqApi {
     public ResponseEntity<List<House>> getUserHouses(String userId) {
         List<House> houses = homeQService.getUserHouses(userId).stream().map(houseDto -> {
             House house = new House();
-            house.setName(houseDto.getName() + " : " + houseDto.getId());
+            house.setName(houseDto.getName() + " : " + houseDto.getId().orElse(""));
             return house;
         }).toList();
         return ResponseEntity.ok(houses);

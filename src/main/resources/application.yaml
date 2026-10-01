@@ -1,7 +1,3 @@
-spring:
-  application:
-    name: notification-engine
-
 server:
   servlet:
     context-path: /api
@@ -11,6 +7,21 @@ logging:
     com:
       bitkulcha:
         notification_engine: ${LOG_LEVEL:INFO}
+
+spring:
+  application:
+    name: notification-engine
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+  liquibase:
+    change-log: classpath:db/changelog/changelog-master.yaml
 
 firebase:
   credential: ${FIREBASE_CREDENTIAL}
