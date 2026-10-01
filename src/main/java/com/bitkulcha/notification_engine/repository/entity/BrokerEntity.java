@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.UUID;
 
@@ -12,6 +14,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "brokers")
+@EntityListeners(AuditingEntityListener.class)
 public class BrokerEntity {
 
     @Id
@@ -30,5 +33,10 @@ public class BrokerEntity {
 
     @Column(nullable = false)
     private Boolean secure;
+
+    @LastModifiedBy
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "updated_by", length = 36)
+    private UUID updatedBy;
 
 }

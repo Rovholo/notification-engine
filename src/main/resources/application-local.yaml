@@ -12,9 +12,17 @@ spring:
     username: sa
     password:
     driver-class-name: org.h2.Driver
+  # Unused locally: LoggingEmailService writes reset codes to the log instead of sending email.
+  mail:
+    host: localhost
 
 firebase:
   credential: ${FIREBASE_CREDENTIAL:firebase-adminsdk.json}
 
 mqtt:
   broker-id: test
+
+jwt:
+  secret: local-development-only-secret-key-0123456789-change-me
+  expiration-minutes: 15
+  refresh-expiration-days: 30

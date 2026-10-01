@@ -5,13 +5,17 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "credential")
+@EntityListeners(AuditingEntityListener.class)
 public class CredentialEntity {
 
     @Id
@@ -26,6 +30,18 @@ public class CredentialEntity {
     private String password;
 
     @OneToOne
-    @JoinColumn(name = "id")
+    @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
+
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
+    @LastModifiedBy
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "updated_by", length = 36)
+    private UUID updatedBy;
 }

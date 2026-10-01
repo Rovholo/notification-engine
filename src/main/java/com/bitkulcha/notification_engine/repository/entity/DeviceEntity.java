@@ -4,6 +4,7 @@ import com.bitkulcha.notification_engine.domain.model.DeviceTypeEnum;
 import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -15,6 +16,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.UUID;
 
@@ -22,6 +25,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "devices")
+@EntityListeners(AuditingEntityListener.class)
 public class DeviceEntity {
 
     @Id
@@ -42,4 +46,9 @@ public class DeviceEntity {
 
     @Column(length = 50)
     private String status;
+
+    @LastModifiedBy
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "updated_by", length = 36)
+    private UUID updatedBy;
 }

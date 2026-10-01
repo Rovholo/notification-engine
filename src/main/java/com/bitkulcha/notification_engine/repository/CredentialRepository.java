@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface CredentialRepository extends JpaRepository<CredentialEntity, UUID> {
 
     Optional<CredentialEntity> findByUsername(String username);
+
+    Optional<CredentialEntity> findByUserId(UUID userId);
 }

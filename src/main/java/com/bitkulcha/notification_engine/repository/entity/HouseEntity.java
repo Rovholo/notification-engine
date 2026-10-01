@@ -4,6 +4,7 @@ import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
@@ -14,6 +15,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -23,6 +26,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "houses")
+@EntityListeners(AuditingEntityListener.class)
 public class HouseEntity {
 
     @Id
@@ -32,6 +36,11 @@ public class HouseEntity {
 
     @Column(nullable = false)
     private String name;
+
+    @LastModifiedBy
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "updated_by", length = 36)
+    private UUID updatedBy;
 
     @ManyToMany
     @JoinTable(name = "house_owners",
