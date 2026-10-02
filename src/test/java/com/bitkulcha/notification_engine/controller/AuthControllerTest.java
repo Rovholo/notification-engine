@@ -1,14 +1,20 @@
 package com.bitkulcha.notification_engine.controller;
 
-import com.bitkulcha.notification_engine.model.AuthResponse;
-import com.bitkulcha.notification_engine.model.CurrentUserResponse;
-import com.bitkulcha.notification_engine.model.LoginRequest;
-import com.bitkulcha.notification_engine.model.PasswordResetConfirmRequest;
-import com.bitkulcha.notification_engine.model.PasswordResetRequest;
-import com.bitkulcha.notification_engine.model.RefreshRequest;
-import com.bitkulcha.notification_engine.model.RegisterRequest;
+import com.bitkulcha.notification_engine.domain.model.AccountModel;
+import com.bitkulcha.notification_engine.domain.model.AccountModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.AuthTokensModel;
+import com.bitkulcha.notification_engine.domain.model.AuthTokensModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.RegistrationModel;
+import com.bitkulcha.notification_engine.domain.model.RegistrationModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.UserModelImmtbl;
+import com.bitkulcha.notification_engine.model.AuthResponseDto;
+import com.bitkulcha.notification_engine.model.CurrentUserResponseDto;
+import com.bitkulcha.notification_engine.model.LoginRequestDto;
+import com.bitkulcha.notification_engine.model.PasswordResetConfirmRequestDto;
+import com.bitkulcha.notification_engine.model.PasswordResetRequestDto;
+import com.bitkulcha.notification_engine.model.RefreshRequestDto;
+import com.bitkulcha.notification_engine.model.RegisterRequestDto;
 import com.bitkulcha.notification_engine.service.AuthService;
-import com.bitkulcha.notification_engine.service.AuthTokens;
 import com.bitkulcha.notification_engine.service.PasswordResetService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -47,10 +53,19 @@ class AuthControllerTest {
 
     @Test
     void register_returnsTokensFromService() {
-        RegisterRequest request = new RegisterRequest("alice", "s3cret", "Alice", "Smith", "alice@example.com");
-        when(authService.register(request)).thenReturn(new AuthTokens("token-123", "refresh-123"));
+        RegisterRequestDto request = new RegisterRequestDto("alice", "s3cret", "Alice", "Smith", "alice@example.com");
+        request.setCell("0821234567");
+        RegistrationModel registration = RegistrationModelImmtbl.builder()
+                .username("alice")
+                .password("s3cret")
+                .name("Alice")
+                .surname("Smith")
+                .email("alice@example.com")
+                .cell("0821234567")
+                .build();
+        when(authService.register(registration)).thenReturn(tokens("token-123", "refresh-123"));
 
-        ResponseEntity<AuthResponse> response = authController.register(request);
+        ResponseEntity<AuthResponseDto> response = authController.register(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getToken()).isEqualTo("token-123");
@@ -59,10 +74,10 @@ class AuthControllerTest {
 
     @Test
     void login_returnsTokensFromService() {
-        LoginRequest request = new LoginRequest("alice", "s3cret");
-        when(authService.login(request)).thenReturn(new AuthTokens("token-123", "refresh-123"));
+        LoginRequestDto request = new LoginRequestDto("alice", "s3cret");
+        when(authService.login("alice", "s3cret")).thenReturn(tokens("token-123", "refresh-123"));
 
-        ResponseEntity<AuthResponse> response = authController.login(request);
+        ResponseEntity<AuthResponseDto> response = authController.login(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getToken()).isEqualTo("token-123");
@@ -71,9 +86,9 @@ class AuthControllerTest {
 
     @Test
     void refresh_returnsNewTokensFromService() {
-        when(authService.refresh("refresh-old")).thenReturn(new AuthTokens("token-new", "refresh-new"));
+        when(authService.refresh("refresh-old")).thenReturn(tokens("token-new", "refresh-new"));
 
-        ResponseEntity<AuthResponse> response = authController.refresh(new RefreshRequest("refresh-old"));
+        ResponseEntity<AuthResponseDto> response = authController.refresh(new RefreshRequestDto("refresh-old"));
 
         assertThat(response.getBody().getToken()).isEqualTo("token-new");
         assertThat(response.getBody().getRefreshToken()).isEqualTo("refresh-new");
@@ -81,7 +96,7 @@ class AuthControllerTest {
 
     @Test
     void logout_revokesTokenAndReturnsNoContent() {
-        ResponseEntity<Void> response = authController.logout(new RefreshRequest("refresh-123"));
+        ResponseEntity<Void> response = authController.logout(new RefreshRequestDto("refresh-123"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(authService).logout("refresh-123");
@@ -92,17 +107,31 @@ class AuthControllerTest {
         UUID userId = UUID.randomUUID();
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(userId, null, List.of()));
-        CurrentUserResponse user = new CurrentUserResponse(userId.toString(), "alice", "Alice", "Smith", "alice@example.com");
-        when(authService.getCurrentUser(userId)).thenReturn(user);
+        AccountModel account = AccountModelImmtbl.builder()
+                .username("alice")
+                .user(UserModelImmtbl.builder()
+                        .id(userId)
+                        .name("Alice")
+                        .surname("Smith")
+                        .email("alice@example.com")
+                        .cell("0821234567")
+                        .build())
+                .build();
+        when(authService.getCurrentUser(userId)).thenReturn(account);
 
-        ResponseEntity<CurrentUserResponse> response = authController.getCurrentUser();
+        ResponseEntity<CurrentUserResponseDto> response = authController.getCurrentUser();
 
-        assertThat(response.getBody()).isSameAs(user);
+        assertThat(response.getBody().getId()).isEqualTo(userId.toString());
+        assertThat(response.getBody().getUsername()).isEqualTo("alice");
+        assertThat(response.getBody().getName()).isEqualTo("Alice");
+        assertThat(response.getBody().getSurname()).isEqualTo("Smith");
+        assertThat(response.getBody().getEmail()).isEqualTo("alice@example.com");
+        assertThat(response.getBody().getCell()).isEqualTo("0821234567");
     }
 
     @Test
     void requestPasswordReset_returnsNoContent() {
-        ResponseEntity<Void> response = authController.requestPasswordReset(new PasswordResetRequest("alice@example.com"));
+        ResponseEntity<Void> response = authController.requestPasswordReset(new PasswordResetRequestDto("alice@example.com"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(passwordResetService).requestReset("alice@example.com");
@@ -111,9 +140,13 @@ class AuthControllerTest {
     @Test
     void confirmPasswordReset_returnsNoContent() {
         ResponseEntity<Void> response = authController.confirmPasswordReset(
-                new PasswordResetConfirmRequest("alice@example.com", "123456", "new-password"));
+                new PasswordResetConfirmRequestDto("alice@example.com", "123456", "new-password"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(passwordResetService).confirmReset("alice@example.com", "123456", "new-password");
+    }
+
+    private static AuthTokensModel tokens(String accessToken, String refreshToken) {
+        return AuthTokensModelImmtbl.builder().accessToken(accessToken).refreshToken(refreshToken).build();
     }
 }

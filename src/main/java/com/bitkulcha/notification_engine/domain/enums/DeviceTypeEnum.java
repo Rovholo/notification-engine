@@ -1,4 +1,4 @@
-package com.bitkulcha.notification_engine.domain.model;
+package com.bitkulcha.notification_engine.domain.enums;
 
 import lombok.Getter;
 

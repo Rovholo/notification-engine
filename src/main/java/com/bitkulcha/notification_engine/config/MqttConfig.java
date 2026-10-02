@@ -1,10 +1,11 @@
 package com.bitkulcha.notification_engine.config;
 
-import com.bitkulcha.notification_engine.dto.BrokerDto;
-import com.bitkulcha.notification_engine.dto.BrokerDtoImmtbl;
+import com.bitkulcha.notification_engine.domain.model.BrokerModel;
+import com.bitkulcha.notification_engine.exception.BrokerNotFoundException;
+import com.bitkulcha.notification_engine.service.BrokerService;
 import com.bitkulcha.notification_engine.service.FirebaseService;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -21,6 +22,7 @@ import org.springframework.messaging.MessageHandler;
 
 import java.util.Arrays;
 
+@Slf4j
 @Configuration
 @EnableIntegration
 public class MqttConfig {
@@ -29,32 +31,33 @@ public class MqttConfig {
 
     private final Environment environment;
     private final FirebaseService firebaseService;
+    private final BrokerService brokerService;
 
-    @Value("${mqtt.broker-id}")
-    private String brokerId;
-
-    public MqttConfig(Environment environment, FirebaseService firebaseService) {
+    public MqttConfig(Environment environment, FirebaseService firebaseService, BrokerService brokerService) {
         this.environment = environment;
         this.firebaseService = firebaseService;
+        this.brokerService = brokerService;
     }
 
     @Bean
     public MqttPahoClientFactory mqttClientFactory() {
-        BrokerDto brokerDto = firebaseService.getBroker(brokerId);
-
-        if (brokerDto == null) {
-            brokerDto = BrokerDtoImmtbl.builder()
-                    .server("localhost")
-                    .username("username")
-                    .password("password")
-                    .isSecure(false)
-                    .build();
+        String server = "localhost";
+        String username = "username";
+        String password = "password";
+        try {
+            BrokerModel broker = brokerService.getDefaultBroker();
+            server = broker.getServer();
+            username = broker.getUsername();
+            password = broker.getPassword();
+        } catch (BrokerNotFoundException e) {
+            // Keeps the app starting without a broker row (e.g. locally); MQTT just won't connect.
+            log.warn("No broker found for mqtt.broker-id, using the localhost placeholder: {}", e.getMessage());
         }
 
         MqttConnectOptions options = new MqttConnectOptions();
-        options.setServerURIs(new String[] {"ssl://" + brokerDto.getServer() + ":8883"});
-        options.setUserName(brokerDto.getUsername());
-        options.setPassword(brokerDto.getPassword().toCharArray());
+        options.setServerURIs(new String[] {"ssl://" + server + ":8883"});
+        options.setUserName(username);
+        options.setPassword(password.toCharArray());
         options.setAutomaticReconnect(true);
         options.setKeepAliveInterval(30);
         options.setConnectionTimeout(60);

@@ -1,13 +1,15 @@
 package com.bitkulcha.notification_engine.service;
 
+import com.bitkulcha.notification_engine.domain.model.AccountModel;
+import com.bitkulcha.notification_engine.domain.model.AuthTokensModel;
+import com.bitkulcha.notification_engine.domain.model.AuthTokensModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.RegistrationModel;
+import com.bitkulcha.notification_engine.domain.model.RegistrationModelImmtbl;
 import com.bitkulcha.notification_engine.exception.EmailAlreadyExistsException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
 import com.bitkulcha.notification_engine.exception.InvalidRefreshTokenException;
 import com.bitkulcha.notification_engine.exception.TooManyLoginAttemptsException;
 import com.bitkulcha.notification_engine.exception.UsernameAlreadyExistsException;
-import com.bitkulcha.notification_engine.model.CurrentUserResponse;
-import com.bitkulcha.notification_engine.model.LoginRequest;
-import com.bitkulcha.notification_engine.model.RegisterRequest;
 import com.bitkulcha.notification_engine.repository.CredentialRepository;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.CredentialEntity;
@@ -56,8 +58,18 @@ class AuthServiceImplTest {
     @InjectMocks
     private AuthServiceImpl authService;
 
-    private static RegisterRequest registerRequest() {
-        return new RegisterRequest("alice", "s3cret", "Alice", "Smith", "alice@example.com");
+    private static RegistrationModel registration() {
+        return RegistrationModelImmtbl.builder()
+                .username("alice")
+                .password("s3cret")
+                .name("Alice")
+                .surname("Smith")
+                .email("alice@example.com")
+                .build();
+    }
+
+    private static AuthTokensModel tokens(String accessToken, String refreshToken) {
+        return AuthTokensModelImmtbl.builder().accessToken(accessToken).refreshToken(refreshToken).build();
     }
 
     private static CredentialEntity credential(UserEntity user) {
@@ -76,9 +88,9 @@ class AuthServiceImplTest {
         when(jwtService.generateToken(any(UUID.class), eq("alice"))).thenReturn("token-123");
         when(refreshTokenService.issue(any(UserEntity.class))).thenReturn("refresh-123");
 
-        AuthTokens tokens = authService.register(registerRequest());
+        AuthTokensModel tokens = authService.register(registration());
 
-        assertThat(tokens).isEqualTo(new AuthTokens("token-123", "refresh-123"));
+        assertThat(tokens).isEqualTo(tokens("token-123", "refresh-123"));
 
         ArgumentCaptor<UserEntity> userCaptor = ArgumentCaptor.forClass(UserEntity.class);
         verify(userRepository).save(userCaptor.capture());
@@ -97,7 +109,7 @@ class AuthServiceImplTest {
     void register_whenUsernameIsTaken_throwsAndDoesNotCreateAnything() {
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(new CredentialEntity()));
 
-        assertThatThrownBy(() -> authService.register(registerRequest()))
+        assertThatThrownBy(() -> authService.register(registration()))
                 .isInstanceOf(UsernameAlreadyExistsException.class);
 
         verify(userRepository, never()).save(any());
@@ -109,7 +121,7 @@ class AuthServiceImplTest {
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(new UserEntity()));
 
-        assertThatThrownBy(() -> authService.register(registerRequest()))
+        assertThatThrownBy(() -> authService.register(registration()))
                 .isInstanceOf(EmailAlreadyExistsException.class);
 
         verify(userRepository, never()).save(any());
@@ -124,7 +136,7 @@ class AuthServiceImplTest {
                 "could not execute statement",
                 new RuntimeException("Duplicate entry 'alice' for key 'uk_credential_username'")));
 
-        assertThatThrownBy(() -> authService.register(registerRequest()))
+        assertThatThrownBy(() -> authService.register(registration()))
                 .isInstanceOf(UsernameAlreadyExistsException.class);
 
         verify(jwtService, never()).generateToken(any(), any());
@@ -138,7 +150,7 @@ class AuthServiceImplTest {
                 "could not execute statement",
                 new RuntimeException("Duplicate entry 'alice@example.com' for key 'uk_users_email'")));
 
-        assertThatThrownBy(() -> authService.register(registerRequest()))
+        assertThatThrownBy(() -> authService.register(registration()))
                 .isInstanceOf(EmailAlreadyExistsException.class);
     }
 
@@ -151,7 +163,7 @@ class AuthServiceImplTest {
                 new RuntimeException("Data too long for column 'username'"));
         when(credentialRepository.saveAndFlush(any())).thenThrow(violation);
 
-        assertThatThrownBy(() -> authService.register(registerRequest()))
+        assertThatThrownBy(() -> authService.register(registration()))
                 .isSameAs(violation);
     }
 
@@ -166,9 +178,9 @@ class AuthServiceImplTest {
         when(jwtService.generateToken(user.getId(), "alice")).thenReturn("token-123");
         when(refreshTokenService.issue(user)).thenReturn("refresh-123");
 
-        AuthTokens tokens = authService.login(new LoginRequest("alice", "s3cret"));
+        AuthTokensModel tokens = authService.login("alice", "s3cret");
 
-        assertThat(tokens).isEqualTo(new AuthTokens("token-123", "refresh-123"));
+        assertThat(tokens).isEqualTo(tokens("token-123", "refresh-123"));
         assertThat(credential.getFailedLoginAttempts()).isZero();
         verify(credentialRepository).save(credential);
     }
@@ -180,7 +192,7 @@ class AuthServiceImplTest {
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
         when(passwordEncoder.matches("wrong", "hashed-password")).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("alice", "wrong")))
+        assertThatThrownBy(() -> authService.login("alice", "wrong"))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         assertThat(credential.getFailedLoginAttempts()).isEqualTo(1);
@@ -197,7 +209,7 @@ class AuthServiceImplTest {
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
         when(passwordEncoder.matches("wrong", "hashed-password")).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("alice", "wrong")))
+        assertThatThrownBy(() -> authService.login("alice", "wrong"))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         assertThat(credential.getLockedUntil()).isAfter(Instant.now().plus(Duration.ofMinutes(14)));
@@ -211,7 +223,7 @@ class AuthServiceImplTest {
 
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("alice", "s3cret")))
+        assertThatThrownBy(() -> authService.login("alice", "s3cret"))
                 .isInstanceOf(TooManyLoginAttemptsException.class);
 
         verify(passwordEncoder, never()).matches(any(), any());
@@ -228,7 +240,7 @@ class AuthServiceImplTest {
         when(jwtService.generateToken(user.getId(), "alice")).thenReturn("token-123");
         when(refreshTokenService.issue(user)).thenReturn("refresh-123");
 
-        authService.login(new LoginRequest("alice", "s3cret"));
+        authService.login("alice", "s3cret");
 
         assertThat(credential.getLockedUntil()).isNull();
     }
@@ -237,7 +249,7 @@ class AuthServiceImplTest {
     void login_whenUsernameDoesNotExist_throwsInvalidCredentials() {
         when(credentialRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("ghost", "whatever")))
+        assertThatThrownBy(() -> authService.login("ghost", "whatever"))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         verify(passwordEncoder, never()).matches(any(), any());
@@ -255,9 +267,9 @@ class AuthServiceImplTest {
         when(jwtService.generateToken(user.getId(), "alice")).thenReturn("token-new");
         when(refreshTokenService.issue(user)).thenReturn("refresh-new");
 
-        AuthTokens tokens = authService.refresh("refresh-old");
+        AuthTokensModel tokens = authService.refresh("refresh-old");
 
-        assertThat(tokens).isEqualTo(new AuthTokens("token-new", "refresh-new"));
+        assertThat(tokens).isEqualTo(tokens("token-new", "refresh-new"));
         verify(refreshTokenService).revoke(existing);
     }
 
@@ -326,11 +338,11 @@ class AuthServiceImplTest {
         user.setCell("0821234567");
         when(credentialRepository.findByUserId(user.getId())).thenReturn(Optional.of(credential(user)));
 
-        CurrentUserResponse response = authService.getCurrentUser(user.getId());
+        AccountModel account = authService.getCurrentUser(user.getId());
 
-        assertThat(response.getId()).isEqualTo(user.getId().toString());
-        assertThat(response.getUsername()).isEqualTo("alice");
-        assertThat(response.getEmail()).isEqualTo("alice@example.com");
-        assertThat(response.getCell()).isEqualTo("0821234567");
+        assertThat(account.getUser().getId()).isEqualTo(user.getId());
+        assertThat(account.getUsername()).isEqualTo("alice");
+        assertThat(account.getUser().getEmail()).isEqualTo("alice@example.com");
+        assertThat(account.getUser().getCell()).contains("0821234567");
     }
 }

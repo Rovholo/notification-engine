@@ -1,8 +1,8 @@
 package com.bitkulcha.notification_engine.service;
 
-import com.bitkulcha.notification_engine.model.NotificationRequest;
+import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 
 public interface NotificationService {
 
-    NotificationRequest sendMessage(NotificationRequest request);
+    void sendPushMessage(PushMessageModel pushMessage);
 }

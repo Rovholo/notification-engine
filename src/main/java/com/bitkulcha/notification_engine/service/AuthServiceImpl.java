@@ -1,13 +1,15 @@
 package com.bitkulcha.notification_engine.service;
 
+import com.bitkulcha.notification_engine.domain.mapper.EntityModelMapper;
+import com.bitkulcha.notification_engine.domain.model.AccountModel;
+import com.bitkulcha.notification_engine.domain.model.AuthTokensModel;
+import com.bitkulcha.notification_engine.domain.model.AuthTokensModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.RegistrationModel;
 import com.bitkulcha.notification_engine.exception.EmailAlreadyExistsException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
 import com.bitkulcha.notification_engine.exception.InvalidRefreshTokenException;
 import com.bitkulcha.notification_engine.exception.TooManyLoginAttemptsException;
 import com.bitkulcha.notification_engine.exception.UsernameAlreadyExistsException;
-import com.bitkulcha.notification_engine.model.CurrentUserResponse;
-import com.bitkulcha.notification_engine.model.LoginRequest;
-import com.bitkulcha.notification_engine.model.RegisterRequest;
 import com.bitkulcha.notification_engine.repository.CredentialRepository;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.CredentialEntity;
@@ -53,24 +55,24 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthTokens register(RegisterRequest request) {
-        if (credentialRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new UsernameAlreadyExistsException("Username is already taken: " + request.getUsername());
+    public AuthTokensModel register(RegistrationModel registration) {
+        if (credentialRepository.findByUsername(registration.getUsername()).isPresent()) {
+            throw new UsernameAlreadyExistsException("Username is already taken: " + registration.getUsername());
         }
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+        if (userRepository.findByEmail(registration.getEmail()).isPresent()) {
             throw new EmailAlreadyExistsException("Email address is already in use");
         }
 
         UserEntity user = new UserEntity();
-        user.setName(request.getName());
-        user.setSurname(request.getSurname());
-        user.setEmail(request.getEmail());
-        user.setCell(request.getCell());
+        user.setName(registration.getName());
+        user.setSurname(registration.getSurname());
+        user.setEmail(registration.getEmail());
+        user.setCell(registration.getCell().orElse(null));
         userRepository.save(user);
 
         CredentialEntity credential = new CredentialEntity();
-        credential.setUsername(request.getUsername());
-        credential.setPassword(passwordEncoder.encode(request.getPassword()));
+        credential.setUsername(registration.getUsername());
+        credential.setPassword(passwordEncoder.encode(registration.getPassword()));
         credential.setUser(user);
         try {
             // Flush so a concurrent registration of the same username or email fails here rather than at commit.
@@ -78,7 +80,7 @@ public class AuthServiceImpl implements AuthService {
         } catch (DataIntegrityViolationException e) {
             String cause = e.getMostSpecificCause().getMessage();
             if (cause != null && cause.contains(USERNAME_UNIQUE_CONSTRAINT)) {
-                throw new UsernameAlreadyExistsException("Username is already taken: " + request.getUsername());
+                throw new UsernameAlreadyExistsException("Username is already taken: " + registration.getUsername());
             }
             if (cause != null && cause.contains(EMAIL_UNIQUE_CONSTRAINT)) {
                 throw new EmailAlreadyExistsException("Email address is already in use");
@@ -92,8 +94,8 @@ public class AuthServiceImpl implements AuthService {
     // Failed-attempt counts must be committed even though the login fails.
     @Override
     @Transactional(noRollbackFor = InvalidCredentialsException.class)
-    public AuthTokens login(LoginRequest request) {
-        CredentialEntity credential = credentialRepository.findByUsername(request.getUsername())
+    public AuthTokensModel login(String username, String password) {
+        CredentialEntity credential = credentialRepository.findByUsername(username)
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid username or password"));
 
         Instant now = Instant.now();
@@ -101,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
             throw new TooManyLoginAttemptsException("Too many unsuccessful login attempts. Please try again later");
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), credential.getPassword())) {
+        if (!passwordEncoder.matches(password, credential.getPassword())) {
             int attempts = credential.getFailedLoginAttempts() + 1;
             if (attempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
                 credential.setFailedLoginAttempts(0);
@@ -125,7 +127,7 @@ public class AuthServiceImpl implements AuthService {
     // Revoking every session on token reuse must be committed even though the refresh fails.
     @Override
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
-    public AuthTokens refresh(String refreshToken) {
+    public AuthTokensModel refresh(String refreshToken) {
         RefreshTokenEntity existing = refreshTokenService.find(refreshToken)
                 .orElseThrow(() -> new InvalidRefreshTokenException("Invalid refresh token"));
         UUID userId = existing.getUser().getId();
@@ -152,21 +154,19 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public CurrentUserResponse getCurrentUser(UUID userId) {
-        CredentialEntity credential = credentialRepository.findByUserId(userId)
+    public AccountModel getCurrentUser(UUID userId) {
+        return credentialRepository.findByUserId(userId)
+                .map(EntityModelMapper::toModel)
                 .orElseThrow(() -> new InvalidCredentialsException("User no longer exists"));
-        UserEntity user = credential.getUser();
-
-        CurrentUserResponse response = new CurrentUserResponse(
-                user.getId().toString(), credential.getUsername(), user.getName(), user.getSurname(), user.getEmail());
-        response.setCell(user.getCell());
-        return response;
     }
 
-    private AuthTokens issueTokens(CredentialEntity credential) {
+    private AuthTokensModel issueTokens(CredentialEntity credential) {
         UserEntity user = credential.getUser();
         String accessToken = jwtService.generateToken(user.getId(), credential.getUsername());
         String refreshToken = refreshTokenService.issue(user);
-        return new AuthTokens(accessToken, refreshToken);
+        return AuthTokensModelImmtbl.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 }

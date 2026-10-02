@@ -1,20 +1,20 @@
 package com.bitkulcha.notification_engine.service;
 
-import com.bitkulcha.notification_engine.model.CurrentUserResponse;
-import com.bitkulcha.notification_engine.model.LoginRequest;
-import com.bitkulcha.notification_engine.model.RegisterRequest;
+import com.bitkulcha.notification_engine.domain.model.AccountModel;
+import com.bitkulcha.notification_engine.domain.model.AuthTokensModel;
+import com.bitkulcha.notification_engine.domain.model.RegistrationModel;
 
 import java.util.UUID;
 
 public interface AuthService {
 
-    AuthTokens register(RegisterRequest request);
+    AuthTokensModel register(RegistrationModel registration);
 
-    AuthTokens login(LoginRequest request);
+    AuthTokensModel login(String username, String password);
 
-    AuthTokens refresh(String refreshToken);
+    AuthTokensModel refresh(String refreshToken);
 
     void logout(String refreshToken);
 
-    CurrentUserResponse getCurrentUser(UUID userId);
+    AccountModel getCurrentUser(UUID userId);
 }

@@ -26,3 +26,18 @@ jwt:
   secret: local-development-only-secret-key-0123456789-change-me
   expiration-minutes: 15
   refresh-expiration-days: 30
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    urls:
+      - name: Auth API
+        url: /swagger/authApi.yaml
+      - name: Broker API
+        url: /swagger/brokerApi.yaml
+      - name: HomeQ API
+        url: /swagger/homeQApi.yaml
+      - name: Notifications API
+        url: /swagger/notificationsApi.yaml

@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: Broker Api
+  version: 1.0.0
+
+servers:
+  - url: /api
+
+paths:
+  /broker:
+    get:
+      summary: Get an MQTT broker, or the default broker set by mqtt.broker-id when no id is given
+      operationId: getBroker
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: brokerId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Broker'
+        '400':
+          description: brokerId is not a valid UUID
+        '404':
+          description: No broker with that id
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Broker:
+      type: object
+      required:
+        - id
+        - server
+        - username
+        - password
+        - secure
+      properties:
+        id:
+          type: string
+        server:
+          type: string
+          example: "broker.example.com"
+        username:
+          type: string
+        password:
+          type: string
+        secure:
+          type: boolean

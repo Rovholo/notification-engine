@@ -1,27 +1,27 @@
 package com.bitkulcha.notification_engine.service;
 
-import com.bitkulcha.notification_engine.dto.BrokerDto;
-import com.bitkulcha.notification_engine.dto.HouseDto;
-import com.bitkulcha.notification_engine.dto.PushMessageDto;
+import com.bitkulcha.notification_engine.domain.model.firebase.BrokerModel;
+import com.bitkulcha.notification_engine.domain.model.firebase.HouseModel;
+import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 
 import java.util.List;
 
 public interface FirebaseService {
     void handleMessage(String topic, Object value);
 
-    void sendMessage(PushMessageDto pushMessage);
+    void sendMessage(PushMessageModel pushMessage);
 
-    void sendMessage(List<String> topics, PushMessageDto pushMessage);
+    void sendMessage(List<String> topics, PushMessageModel pushMessage);
 
     void getAllBrokers();
 
-    BrokerDto getBroker(String id);
+    BrokerModel getBroker(String id);
 
-    HouseDto getHouse(String id);
+    HouseModel getHouse(String id);
 
-    void updateHouse(HouseDto houseDto);
+    void updateHouse(HouseModel houseModel);
 
     List<String> getUserIds(String value);
 
-    List<HouseDto> getUserHouses(String userId);
+    List<HouseModel> getUserHouses(String userId);
 }

@@ -4,11 +4,11 @@ import com.google.api.core.ApiFutures;
 import com.google.cloud.firestore.*;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
-import com.bitkulcha.notification_engine.dto.HouseDto;
-import com.bitkulcha.notification_engine.dto.HouseDtoImmtbl;
-import com.bitkulcha.notification_engine.dto.NotificationImmtbl;
-import com.bitkulcha.notification_engine.dto.PushMessageDto;
-import com.bitkulcha.notification_engine.dto.PushMessageDtoImmtbl;
+import com.bitkulcha.notification_engine.domain.model.firebase.HouseModel;
+import com.bitkulcha.notification_engine.domain.model.firebase.HouseModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.NotificationImmtbl;
+import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
+import com.bitkulcha.notification_engine.domain.model.PushMessageModelImmtbl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -38,7 +38,7 @@ class FirebaseServiceImplTest {
     private FirebaseServiceImpl firebaseService;
 
     @Test
-    void getHouse_mapsFirestoreDocumentToDto() {
+    void getHouse_mapsFirestoreDocumentToModel() {
         CollectionReference collection = mock(CollectionReference.class);
         DocumentReference docRef = mock(DocumentReference.class);
         DocumentSnapshot snapshot = mock(DocumentSnapshot.class);
@@ -53,7 +53,7 @@ class FirebaseServiceImplTest {
                 "residents", List.of("resident-1"),
                 "devices", List.of("device-1")));
 
-        HouseDto house = firebaseService.getHouse("house-1");
+        HouseModel house = firebaseService.getHouse("house-1");
 
         assertThat(house.getId()).contains("house-1");
         assertThat(house.getName()).isEqualTo("Greenwood Manor");
@@ -70,7 +70,7 @@ class FirebaseServiceImplTest {
         when(collection.document("house-1")).thenReturn(docRef);
         when(docRef.get()).thenReturn(ApiFutures.immediateFailedFuture(new RuntimeException("offline")));
 
-        HouseDto house = firebaseService.getHouse("house-1");
+        HouseModel house = firebaseService.getHouse("house-1");
 
         assertThat(house).isNull();
     }
@@ -98,7 +98,7 @@ class FirebaseServiceImplTest {
         DocumentReference docRef = mock(DocumentReference.class);
         when(firestore.document(anyString())).thenReturn(docRef);
 
-        HouseDto house = HouseDtoImmtbl.builder()
+        HouseModel house = HouseModelImmtbl.builder()
                 .id("house-1")
                 .name("Greenwood Manor")
                 .owners(List.of("owner-1"))
@@ -113,14 +113,14 @@ class FirebaseServiceImplTest {
         ArgumentCaptor<SetOptions> optionsCaptor = ArgumentCaptor.forClass(SetOptions.class);
         verify(docRef).set(dataCaptor.capture(), optionsCaptor.capture());
         assertThat(optionsCaptor.getValue()).isEqualTo(SetOptions.merge());
-        HouseDto persisted = (HouseDto) dataCaptor.getValue();
+        HouseModel persisted = (HouseModel) dataCaptor.getValue();
         assertThat(persisted.getId()).contains("house-1");
         assertThat(persisted.getName()).isEqualTo("Greenwood Manor");
     }
 
     @Test
     void sendMessage_single_sendsPushNotification() throws Exception {
-        PushMessageDto message = pushMessage("house-1", "Door", "opened");
+        PushMessageModel message = pushMessage("house-1", "Door", "opened");
 
         firebaseService.sendMessage(message);
 
@@ -129,7 +129,7 @@ class FirebaseServiceImplTest {
 
     @Test
     void sendMessage_single_whenFirebaseMessagingFails_wrapsInRuntimeException() throws Exception {
-        PushMessageDto message = pushMessage("house-1", "Door", "opened");
+        PushMessageModel message = pushMessage("house-1", "Door", "opened");
         doThrow(new RuntimeException("fcm unavailable")).when(firebaseMessaging).send(any(Message.class));
 
         assertThatThrownBy(() -> firebaseService.sendMessage(message))
@@ -139,15 +139,15 @@ class FirebaseServiceImplTest {
 
     @Test
     void sendMessage_multipleTopics_sendsToEachTopic() {
-        PushMessageDto message = pushMessage("house-1", "Door", "opened");
+        PushMessageModel message = pushMessage("house-1", "Door", "opened");
 
         firebaseService.sendMessage(List.of("topic-1", "topic-2"), message);
 
         verify(firebaseMessaging).sendEachAsync(argThat(messages -> messages.size() == 2));
     }
 
-    private PushMessageDto pushMessage(String topic, String title, String body) {
-        return PushMessageDtoImmtbl.builder()
+    private PushMessageModel pushMessage(String topic, String title, String body) {
+        return PushMessageModelImmtbl.builder()
                 .topic(topic)
                 .notification(NotificationImmtbl.builder().title(title).body(body).build())
                 .build();

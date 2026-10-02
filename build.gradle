@@ -38,6 +38,7 @@ dependencies {
 	implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
 	implementation 'org.hibernate.validator:hibernate-validator:8.0.1.Final'
 	implementation 'org.openapitools:jackson-databind-nullable:0.2.11'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 	implementation 'com.google.firebase:firebase-admin:9.10.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.boot:spring-boot-data-jpa-test'
@@ -64,6 +65,7 @@ apiSpecs.each { spec ->
 		outputDir = "$rootDir/build/generated/"
 		apiPackage = "com.bitkulcha.notification_engine.api"
 		modelPackage = "com.bitkulcha.notification_engine.model"
+		modelNameSuffix = "Dto"
 		configOptions = [
 				interfaceOnly: "true",
 				skipDefaultInterface: "true",

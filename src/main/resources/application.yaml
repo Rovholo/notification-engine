@@ -44,3 +44,10 @@ jwt:
   secret: ${JWT_SECRET}
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
   refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
+
+# API docs are off unless a profile opts in (see application-local.yaml), so prod never exposes them.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

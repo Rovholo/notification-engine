@@ -4,20 +4,15 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://localhost:8080
+  - url: /api
 
 paths:
-  /homeq/user/houses/{userId}:
+  /homeq/houses:
     get:
-      summary: Send MQTT message
-      operationId: getUserHouses
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          description: The unique ID of the user
-          schema:
-            type: string
+      summary: Get the houses the authenticated user owns or lives in
+      operationId: getMyHouses
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Success
@@ -26,61 +21,167 @@ paths:
               schema:
                 type: array
                 items:
-                    $ref: '#/components/schemas/House'
-
-  /homeq/house/resident:
+                  $ref: '#/components/schemas/HouseDetails'
     post:
-      summary: add Resident to House
-      operationId: AddHouseResident
+      summary: Create a house owned by the authenticated user
+      operationId: createHouse
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AddResidentRequest'
+              $ref: '#/components/schemas/CreateHouseRequest'
       responses:
-        '200':
-          description: Success
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseDetails'
+        '400':
+          description: Invalid request body
+
+  /homeq/houses/{houseId}/devices:
+    post:
+      summary: Add a device to a house the authenticated user owns
+      operationId: addDevice
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '400':
+          description: Invalid request body or house id
+        '403':
+          description: The user lives in the house but is not an owner
+        '404':
+          description: No such house, or the user is not a member of it
+
 
 components:
-  schemas:
-    AddResidentRequest:
-      type: object
-      properties:
-        userId:
-          type: string
-        homeId:
-          type: string
-      required:
-        - userId
-        - homeId
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
-    House:
+  schemas:
+
+    HouseDetails:
       type: object
       required:
+        - id
         - name
         - owners
         - residents
         - devices
       properties:
+        id:
+          type: string
         name:
           type: string
           example: "Greenwood Manor"
         owners:
           type: array
-          description: A list of the house owners' names
           items:
-            type: string
-          example: ["Alice Smith", "Bob Smith"]
+            $ref: '#/components/schemas/HouseMember'
         residents:
           type: array
-          description: A list of the current residents' names
           items:
-            type: string
-          example: ["Charlie Smith"]
+            $ref: '#/components/schemas/HouseMember'
         devices:
           type: array
-          description: A list of registered smart home device IDs or names
           items:
-            type: string
-          example: ["thermostat-01", "smart-lock-front"]
+            $ref: '#/components/schemas/Device'
+
+    HouseMember:
+      type: object
+      required:
+        - id
+        - name
+        - surname
+        - email
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: "Alice"
+        surname:
+          type: string
+          example: "Smith"
+        email:
+          type: string
+          example: "alice@example.com"
+
+    Device:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: "Front garage"
+        type:
+          $ref: '#/components/schemas/DeviceType'
+        status:
+          type: string
+          example: "closed"
+
+    DeviceType:
+      type: string
+      enum: [GARAGE_DOOR, LIGHT, AIR_CON, SENSOR]
+
+    CreateHouseRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '.*\S.*'
+          example: "Greenwood Manor"
+
+    CreateDeviceRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '.*\S.*'
+          example: "Front garage"
+        type:
+          $ref: '#/components/schemas/DeviceType'
+        status:
+          type: string
+          maxLength: 50
+          example: "closed"

@@ -1,10 +1,20 @@
 package com.bitkulcha.notification_engine.controller;
 
-import com.bitkulcha.notification_engine.dto.HouseDto;
-import com.bitkulcha.notification_engine.dto.HouseDtoImmtbl;
-import com.bitkulcha.notification_engine.model.AddResidentRequest;
-import com.bitkulcha.notification_engine.model.House;
+import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
+import com.bitkulcha.notification_engine.domain.model.DeviceModel;
+import com.bitkulcha.notification_engine.domain.model.DeviceModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.HouseModel;
+import com.bitkulcha.notification_engine.domain.model.HouseModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.UserModel;
+import com.bitkulcha.notification_engine.domain.model.UserModelImmtbl;
+import com.bitkulcha.notification_engine.model.CreateDeviceRequestDto;
+import com.bitkulcha.notification_engine.model.CreateHouseRequestDto;
+import com.bitkulcha.notification_engine.model.DeviceDto;
+import com.bitkulcha.notification_engine.model.DeviceTypeDto;
+import com.bitkulcha.notification_engine.model.HouseDetailsDto;
+import com.bitkulcha.notification_engine.model.HouseMemberDto;
 import com.bitkulcha.notification_engine.service.HomeQService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,11 +22,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,31 +41,98 @@ class HomeQControllerTest {
     @InjectMocks
     private HomeQController homeQController;
 
-    @Test
-    void getUserHouses_mapsServiceHousesToNameAndId() {
-        HouseDto house = HouseDtoImmtbl.builder()
-                .id("house-1")
-                .name("Greenwood Manor")
-                .owners(List.of("owner-1"))
-                .residents(List.of())
-                .devices(List.of())
-                .build();
-        when(homeQService.getUserHouses("user-1")).thenReturn(List.of(house));
-
-        ResponseEntity<List<House>> response = homeQController.getUserHouses("user-1");
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).hasSize(1);
-        assertThat(response.getBody().getFirst().getName()).isEqualTo("Greenwood Manor : house-1");
+    @AfterEach
+    void clearContext() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
-    void addHouseResident_delegatesToServiceAndReturnsOk() {
-        AddResidentRequest request = new AddResidentRequest("user-1", "house-1");
+    void getMyHouses_mapsCurrentUsersHousesToResponse() {
+        UUID userId = authenticate();
+        UserModel alice = user("Alice");
+        UserModel charlie = user("Charlie");
+        DeviceModel garage = device("Garage", DeviceTypeEnum.GARAGE_DOOR, "closed");
+        HouseModel house = HouseModelImmtbl.builder()
+                .id(UUID.randomUUID())
+                .name("Greenwood Manor")
+                .addOwners(alice)
+                .addResidents(charlie)
+                .addDevices(garage)
+                .build();
+        when(homeQService.getHousesForMember(userId)).thenReturn(List.of(house));
 
-        ResponseEntity<Void> response = homeQController.addHouseResident(request);
+        ResponseEntity<List<HouseDetailsDto>> response = homeQController.getMyHouses();
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        verify(homeQService).addHouseResident("user-1", "house-1");
+        assertThat(response.getBody()).singleElement().satisfies(details -> {
+            assertThat(details.getId()).isEqualTo(house.getId().toString());
+            assertThat(details.getName()).isEqualTo("Greenwood Manor");
+            assertThat(details.getOwners()).singleElement().satisfies(owner -> {
+                assertThat(owner.getId()).isEqualTo(alice.getId().toString());
+                assertThat(owner.getName()).isEqualTo("Alice");
+                assertThat(owner.getSurname()).isEqualTo("Smith");
+                assertThat(owner.getEmail()).isEqualTo("alice@example.com");
+            });
+            assertThat(details.getResidents()).extracting(HouseMemberDto::getName).containsExactly("Charlie");
+            assertThat(details.getDevices()).singleElement().satisfies(device -> {
+                assertThat(device.getId()).isEqualTo(garage.getId().toString());
+                assertThat(device.getType()).isEqualTo(DeviceTypeDto.GARAGE_DOOR);
+                assertThat(device.getStatus()).isEqualTo("closed");
+            });
+        });
+    }
+
+    @Test
+    void createHouse_createsForCurrentUser_andReturnsCreated() {
+        UUID userId = authenticate();
+        HouseModel house = HouseModelImmtbl.builder().id(UUID.randomUUID()).name("Greenwood Manor").build();
+        when(homeQService.createHouse(userId, "Greenwood Manor")).thenReturn(house);
+
+        ResponseEntity<HouseDetailsDto> response = homeQController.createHouse(new CreateHouseRequestDto("Greenwood Manor"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().getId()).isEqualTo(house.getId().toString());
+        assertThat(response.getBody().getName()).isEqualTo("Greenwood Manor");
+    }
+
+    @Test
+    void addDevice_passesRequestFieldsToService_andReturnsCreated() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null);
+        when(homeQService.addDevice(userId, houseId, "Porch light", DeviceTypeEnum.LIGHT, null)).thenReturn(light);
+
+        ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
+                new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().getId()).isEqualTo(light.getId().toString());
+        assertThat(response.getBody().getType()).isEqualTo(DeviceTypeDto.LIGHT);
+        assertThat(response.getBody().getStatus()).isNull();
+    }
+
+    private UUID authenticate() {
+        UUID userId = UUID.randomUUID();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userId, null, List.of()));
+        return userId;
+    }
+
+    private UserModel user(String name) {
+        return UserModelImmtbl.builder()
+                .id(UUID.randomUUID())
+                .name(name)
+                .surname("Smith")
+                .email(name.toLowerCase() + "@example.com")
+                .build();
+    }
+
+    private DeviceModel device(String name, DeviceTypeEnum type, String status) {
+        return DeviceModelImmtbl.builder()
+                .id(UUID.randomUUID())
+                .name(name)
+                .type(type)
+                .status(Optional.ofNullable(status))
+                .build();
     }
 }

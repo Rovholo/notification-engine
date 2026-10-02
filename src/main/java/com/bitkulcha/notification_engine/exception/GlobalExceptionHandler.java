@@ -37,4 +37,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleInvalidResetCode(InvalidResetCodeException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }
+
+    @ExceptionHandler(HouseNotFoundException.class)
+    public ResponseEntity<String> handleHouseNotFound(HouseNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    }
+
+    @ExceptionHandler(HouseAccessDeniedException.class)
+    public ResponseEntity<String> handleHouseAccessDenied(HouseAccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+    }
+
+    @ExceptionHandler(BrokerNotFoundException.class)
+    public ResponseEntity<String> handleBrokerNotFound(BrokerNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    }
 }

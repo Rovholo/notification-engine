@@ -1,9 +1,7 @@
 package com.bitkulcha.notification_engine.service;
 
-import com.bitkulcha.notification_engine.dto.MqttMessageDto;
-import com.bitkulcha.notification_engine.dto.PushMessageDto;
-import com.bitkulcha.notification_engine.model.NotificationRequest;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bitkulcha.notification_engine.domain.model.MqttMessageModel;
+import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.integration.support.MessageBuilder;
@@ -14,7 +12,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class NotificationServiceImpl implements NotificationService {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final MessageChannel mqttOutboundChannel;
     private final FirebaseService firebaseService;
 
@@ -26,23 +23,13 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public NotificationRequest sendMessage(NotificationRequest body) {
-        log.debug("Sending notification message: {}", body.getMessage());
-        switch (body.getType()) {
-            case NotificationRequest.TypeEnum.MQTT:
-//                sendMqttMessage(objectMapper.convertValue(body.getMessage(), MqttMessageDto.class) );
-                break;
-            case NotificationRequest.TypeEnum.PUSH:
-                firebaseService.sendMessage(objectMapper.convertValue(body.getMessage(), PushMessageDto.class));
-                break;
-            default:
-                log.debug("No message type found");
-        }
+    public void sendPushMessage(PushMessageModel pushMessage) {
+        log.debug("Sending push message: {}", pushMessage);
+        firebaseService.sendMessage(pushMessage);
         log.debug("Message sent");
-        return body;
     }
 
-    private void sendMqttMessage(MqttMessageDto mqttMessage) {
+    private void sendMqttMessage(MqttMessageModel mqttMessage) {
         log.debug("Sending MQTT message: {}", mqttMessage.toString());
         try {
             mqttOutboundChannel.send(MessageBuilder

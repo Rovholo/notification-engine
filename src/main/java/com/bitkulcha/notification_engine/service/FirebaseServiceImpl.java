@@ -1,6 +1,11 @@
 package com.bitkulcha.notification_engine.service;
 
-import com.bitkulcha.notification_engine.dto.*;
+import com.bitkulcha.notification_engine.domain.model.NotificationImmtbl;
+import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
+import com.bitkulcha.notification_engine.domain.model.PushMessageModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.firebase.BrokerModel;
+import com.bitkulcha.notification_engine.domain.model.firebase.FirebaseBaseModel;
+import com.bitkulcha.notification_engine.domain.model.firebase.HouseModel;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.*;
@@ -38,15 +43,15 @@ public class FirebaseServiceImpl implements FirebaseService {
             Map<String, Object> map = objectMapper.readValue((String) value, new TypeReference<>() {});
             String[] topicSplit = topic.split("/");
             if ("reaction".equalsIgnoreCase(topicSplit[2]) && map.get("old") != null) {
-                HouseDto house = getHouse(topicSplit[1]);
-                PushMessageDto messageDto = PushMessageDtoImmtbl.builder()
+                HouseModel house = getHouse(topicSplit[1]);
+                PushMessageModel messageModel = PushMessageModelImmtbl.builder()
                         .topic(topicSplit[1])
                         .notification(NotificationImmtbl.builder()
                                 .title(house.getName())
                                 .body("Your " + map.get("name") + " is " + map.get("status"))
                                 .build())
                         .build();
-                sendMessage(house.getOwners(), messageDto);
+                sendMessage(house.getOwners(), messageModel);
             }
         } catch (Exception e) {
             log.error("Error handling message from topic: {} {} \n", topic, value, e);
@@ -54,10 +59,10 @@ public class FirebaseServiceImpl implements FirebaseService {
     }
 
     @Override
-    public void sendMessage(PushMessageDto pushMessage) {
+    public void sendMessage(PushMessageModel pushMessage) {
         String title = pushMessage.getTitle();
         String body = pushMessage.getBody();
-        PushMessageDto.Notification  notification = pushMessage.getNotification();
+        PushMessageModel.Notification  notification = pushMessage.getNotification();
         log.info("sendMessage: title={}, body={}, notification={}", title, body, notification);
         try {
             firebaseMessaging.send(Message.builder()
@@ -77,10 +82,10 @@ public class FirebaseServiceImpl implements FirebaseService {
     }
 
     @Override
-    public void sendMessage(List<String> topics, PushMessageDto pushMessage) {
+    public void sendMessage(List<String> topics, PushMessageModel pushMessage) {
         String title = pushMessage.getTitle();
         String body = pushMessage.getBody();
-        PushMessageDto.Notification  notification = pushMessage.getNotification();
+        PushMessageModel.Notification  notification = pushMessage.getNotification();
         log.info("sendMessages: title={}, body={}, notification={}", title, body, notification);
         try {
             firebaseMessaging.sendEachAsync(topics.parallelStream().map(topic -> Message.builder()
@@ -101,21 +106,21 @@ public class FirebaseServiceImpl implements FirebaseService {
 
     @Override
     public void getAllBrokers() {
-        getDocs(BROKERS, BrokerDto.class);
+        getDocs(BROKERS, BrokerModel.class);
     }
 
     @Override
-    public BrokerDto getBroker(String id) {
-        return getDoc(id, BROKERS, BrokerDto.class);
+    public BrokerModel getBroker(String id) {
+        return getDoc(id, BROKERS, BrokerModel.class);
     }
 
     @Override
-    public HouseDto getHouse(String id) {
-        return getDoc(id, HOUSES, HouseDto.class);
+    public HouseModel getHouse(String id) {
+        return getDoc(id, HOUSES, HouseModel.class);
     }
 
     @Override
-    public void updateHouse(HouseDto house) {
+    public void updateHouse(HouseModel house) {
         updateDoc(HOUSES, house);
     }
 
@@ -125,19 +130,19 @@ public class FirebaseServiceImpl implements FirebaseService {
     }
 
     @Override
-    public List<HouseDto> getUserHouses(String userId) {
-        return getDocs("owners", userId, HOUSES, HouseDto.class);
+    public List<HouseModel> getUserHouses(String userId) {
+        return getDocs("owners", userId, HOUSES, HouseModel.class);
     }
 
-    private <T extends FirebaseBaseDto<T>> void addDoc(String name, T data) {
+    private <T extends FirebaseBaseModel<T>> void addDoc(String name, T data) {
         firestore.collection(name).add(data);
     }
 
-    private <T extends FirebaseBaseDto<T>> void setDoc(String name, T data) {
+    private <T extends FirebaseBaseModel<T>> void setDoc(String name, T data) {
         firestore.document(name + "/" + data.getId()).set(data);
     }
 
-    private <T extends FirebaseBaseDto<T>> void updateDoc(String name, T data) {
+    private <T extends FirebaseBaseModel<T>> void updateDoc(String name, T data) {
         try {
             String id = data.getId().orElseThrow();
             firestore.document(name + "/" + id).set(data, SetOptions.merge());
@@ -147,7 +152,7 @@ public class FirebaseServiceImpl implements FirebaseService {
         }
     }
 
-    <T extends FirebaseBaseDto<T>> T getDoc(String id, String name, Class<T> valueType) {
+    <T extends FirebaseBaseModel<T>> T getDoc(String id, String name, Class<T> valueType) {
         try {
             DocumentReference ref = firestore.collection(name).document(id);
             return objectMapper.convertValue(ref.get().get().getData(), valueType).withId(ref.getId());
@@ -157,7 +162,7 @@ public class FirebaseServiceImpl implements FirebaseService {
         }
     }
 
-    <T extends FirebaseBaseDto<T>> List<T>  getDocs(String name, Class<T> valueType) {
+    <T extends FirebaseBaseModel<T>> List<T>  getDocs(String name, Class<T> valueType) {
         try {
             return firestore.collection(name).get().get().getDocuments().stream()
                     .map( (doc) -> objectMapper.convertValue(doc.getData(), valueType).withId(doc.getId()))
@@ -179,7 +184,7 @@ public class FirebaseServiceImpl implements FirebaseService {
         }
     }
 
-    <T extends FirebaseBaseDto<T>> List<T> getDocs(String name, String type, String value, Class<T> valueType) {
+    <T extends FirebaseBaseModel<T>> List<T> getDocs(String name, String type, String value, Class<T> valueType) {
         try {
             return firestore.collection(name).whereEqualTo(type, value).get().get().getDocuments().stream()
                     .map((doc) -> objectMapper.convertValue(doc.getData(), valueType).withId(doc.getId()))

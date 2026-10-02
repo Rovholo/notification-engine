@@ -1,13 +1,13 @@
-package com.bitkulcha.notification_engine.dto;
+package com.bitkulcha.notification_engine.domain.model.firebase;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.immutables.value.Value;
 
 @Value.Immutable
-@JsonDeserialize(as = UserDtoImmtbl.class)
-@JsonSerialize(as = UserDtoImmtbl.class)
-public interface UserDto extends FirebaseBaseDto<UserDto> {
+@JsonDeserialize(as = UserModelImmtbl.class)
+@JsonSerialize(as = UserModelImmtbl.class)
+public interface UserModel extends FirebaseBaseModel<UserModel> {
     String getName();
     String getSurname();
     String getEmail();
