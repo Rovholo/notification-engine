@@ -9,17 +9,17 @@ servers:
 paths:
   /broker:
     get:
-      summary: Get an MQTT broker, or the default broker set by mqtt.broker-id when no id is given
+      summary: Get an MQTT broker by name, or the default broker set by mqtt.broker-name when no name is given
+      description: Names are not unique; if several brokers share a name the oldest is returned.
       operationId: getBroker
       security:
         - bearerAuth: []
       parameters:
-        - name: brokerId
+        - name: name
           in: query
           required: false
           schema:
             type: string
-            format: uuid
       responses:
         '200':
           description: Success
@@ -27,10 +27,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Broker'
-        '400':
-          description: brokerId is not a valid UUID
         '404':
-          description: No broker with that id
+          description: No broker with that name
 
 components:
   securitySchemes:
@@ -44,6 +42,7 @@ components:
       type: object
       required:
         - id
+        - name
         - server
         - username
         - password
@@ -51,6 +50,9 @@ components:
       properties:
         id:
           type: string
+        name:
+          type: string
+          example: "main"
         server:
           type: string
           example: "broker.example.com"

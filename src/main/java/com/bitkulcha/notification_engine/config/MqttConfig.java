@@ -51,7 +51,7 @@ public class MqttConfig {
             password = broker.getPassword();
         } catch (BrokerNotFoundException e) {
             // Keeps the app starting without a broker row (e.g. locally); MQTT just won't connect.
-            log.warn("No broker found for mqtt.broker-id, using the localhost placeholder: {}", e.getMessage());
+            log.warn("No broker found for mqtt.broker-name, using the localhost placeholder: {}", e.getMessage());
         }
 
         MqttConnectOptions options = new MqttConnectOptions();

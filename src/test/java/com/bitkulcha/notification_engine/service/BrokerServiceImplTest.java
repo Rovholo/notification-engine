@@ -9,14 +9,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,12 +25,13 @@ class BrokerServiceImplTest {
 
     @Test
     void getBroker_returnsBrokerModel() {
-        BrokerEntity entity = brokerEntity();
+        BrokerEntity entity = brokerEntity("main");
         when(brokerRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
 
         BrokerModel broker = service("unused").getBroker(entity.getId());
 
         assertThat(broker.getId()).isEqualTo(entity.getId());
+        assertThat(broker.getName()).isEqualTo("main");
         assertThat(broker.getServer()).isEqualTo("broker.example.com");
     }
 
@@ -46,28 +45,41 @@ class BrokerServiceImplTest {
     }
 
     @Test
-    void getDefaultBroker_looksUpConfiguredId() {
-        BrokerEntity entity = brokerEntity();
-        when(brokerRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+    void getBrokerByName_returnsFirstMatch() {
+        BrokerEntity first = brokerEntity("main");
+        BrokerEntity second = brokerEntity("main");
+        when(brokerRepository.findByNameOrderByIdAsc("main")).thenReturn(List.of(first, second));
 
-        BrokerModel broker = service(entity.getId().toString()).getDefaultBroker();
+        BrokerModel broker = service("unused").getBrokerByName("main");
+
+        assertThat(broker.getId()).isEqualTo(first.getId());
+    }
+
+    @Test
+    void getBrokerByName_whenNoMatch_throwsNotFound() {
+        when(brokerRepository.findByNameOrderByIdAsc("missing")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service("unused").getBrokerByName("missing"))
+                .isInstanceOf(BrokerNotFoundException.class);
+    }
+
+    @Test
+    void getDefaultBroker_looksUpConfiguredName() {
+        BrokerEntity entity = brokerEntity("main");
+        when(brokerRepository.findByNameOrderByIdAsc("main")).thenReturn(List.of(entity));
+
+        BrokerModel broker = service("main").getDefaultBroker();
 
         assertThat(broker.getId()).isEqualTo(entity.getId());
     }
 
-    @Test
-    void getDefaultBroker_whenConfiguredIdIsNotAUuid_throwsNotFound() {
-        assertThatThrownBy(() -> service("test").getDefaultBroker())
-                .isInstanceOf(BrokerNotFoundException.class);
-        verify(brokerRepository, never()).findById(any());
+    private BrokerServiceImpl service(String defaultBrokerName) {
+        return new BrokerServiceImpl(brokerRepository, defaultBrokerName);
     }
 
-    private BrokerServiceImpl service(String defaultBrokerId) {
-        return new BrokerServiceImpl(brokerRepository, defaultBrokerId);
-    }
-
-    private BrokerEntity brokerEntity() {
+    private BrokerEntity brokerEntity(String name) {
         BrokerEntity broker = new BrokerEntity();
+        broker.setName(name);
         broker.setServer("broker.example.com");
         broker.setUsername("user");
         broker.setPassword("secret");

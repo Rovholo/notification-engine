@@ -97,6 +97,7 @@ class EntityModelMapperTest {
     @Test
     void toModel_broker_mapsAllFields() {
         BrokerEntity entity = new BrokerEntity();
+        entity.setName("main");
         entity.setServer("broker.example.com");
         entity.setUsername("user");
         entity.setPassword("secret");
@@ -105,6 +106,7 @@ class EntityModelMapperTest {
         BrokerModel broker = EntityModelMapper.toModel(entity);
 
         assertThat(broker.getId()).isEqualTo(entity.getId());
+        assertThat(broker.getName()).isEqualTo("main");
         assertThat(broker.getServer()).isEqualTo("broker.example.com");
         assertThat(broker.getUsername()).isEqualTo("user");
         assertThat(broker.getPassword()).isEqualTo("secret");

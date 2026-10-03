@@ -7,8 +7,6 @@ import com.bitkulcha.notification_engine.service.BrokerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @RestController
 public class BrokerController implements BrokerApi {
 
@@ -19,13 +17,15 @@ public class BrokerController implements BrokerApi {
     }
 
     @Override
-    public ResponseEntity<BrokerDto> getBroker(UUID brokerId) {
-        BrokerModel broker = brokerId == null ? brokerService.getDefaultBroker() : brokerService.getBroker(brokerId);
+    public ResponseEntity<BrokerDto> getBroker(String name) {
+        BrokerModel broker = name == null || name.isBlank()
+                ? brokerService.getDefaultBroker()
+                : brokerService.getBrokerByName(name);
         return ResponseEntity.ok(toBroker(broker));
     }
 
     private static BrokerDto toBroker(BrokerModel broker) {
-        return new BrokerDto(broker.getId().toString(), broker.getServer(), broker.getUsername(), broker.getPassword(),
+        return new BrokerDto(broker.getId().toString(), broker.getName(), broker.getServer(), broker.getUsername(), broker.getPassword(),
                 broker.isSecure());
     }
 }

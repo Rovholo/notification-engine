@@ -38,6 +38,7 @@ class MqttConfigTest {
         when(brokerService.getDefaultBroker())
                 .thenReturn(BrokerModelImmtbl.builder()
                         .id(UUID.randomUUID())
+                        .name("main")
                         .server("broker.example.com")
                         .username("user")
                         .password("secret")

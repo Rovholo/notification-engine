@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
-        "mqtt.broker-id=not-used-here"
+        "mqtt.broker-name=not-used-here"
 })
 @Import(BrokerServiceImpl.class)
 class BrokerServiceImplIntegrationTest {
@@ -36,21 +36,41 @@ class BrokerServiceImplIntegrationTest {
 
     @Test
     void getBroker_readsBrokerFromTheDatabase() {
-        BrokerEntity entity = new BrokerEntity();
-        entity.setServer("broker.example.com");
-        entity.setUsername("user");
-        entity.setPassword("secret");
-        entity.setSecure(false);
-        brokerRepository.save(entity);
+        BrokerEntity entity = saveBroker("main", "broker.example.com");
         entityManager.flush();
         entityManager.clear();
 
         BrokerModel broker = brokerService.getBroker(entity.getId());
 
         assertThat(broker.getId()).isEqualTo(entity.getId());
+        assertThat(broker.getName()).isEqualTo("main");
         assertThat(broker.getServer()).isEqualTo("broker.example.com");
         assertThat(broker.getUsername()).isEqualTo("user");
         assertThat(broker.getPassword()).isEqualTo("secret");
         assertThat(broker.isSecure()).isFalse();
+    }
+
+    @Test
+    void getBrokerByName_whenNameIsShared_returnsTheOldest() {
+        BrokerEntity oldest = saveBroker("main", "first.example.com");
+        saveBroker("main", "second.example.com");
+        saveBroker("other", "other.example.com");
+        entityManager.flush();
+        entityManager.clear();
+
+        BrokerModel broker = brokerService.getBrokerByName("main");
+
+        assertThat(broker.getId()).isEqualTo(oldest.getId());
+        assertThat(broker.getServer()).isEqualTo("first.example.com");
+    }
+
+    private BrokerEntity saveBroker(String name, String server) {
+        BrokerEntity entity = new BrokerEntity();
+        entity.setName(name);
+        entity.setServer(server);
+        entity.setUsername("user");
+        entity.setPassword("secret");
+        entity.setSecure(false);
+        return brokerRepository.save(entity);
     }
 }

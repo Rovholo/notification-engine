@@ -8,5 +8,7 @@ public interface BrokerService {
 
     BrokerModel getBroker(UUID brokerId);
 
+    BrokerModel getBrokerByName(String name);
+
     BrokerModel getDefaultBroker();
 }

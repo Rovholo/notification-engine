@@ -7,6 +7,7 @@ import java.util.UUID;
 @Value.Immutable
 public interface BrokerModel {
     UUID getId();
+    String getName();
     String getServer();
     String getUsername();
     String getPassword();

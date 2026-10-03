@@ -70,6 +70,7 @@ public final class EntityModelMapper {
     public static BrokerModel toModel(BrokerEntity broker) {
         return BrokerModelImmtbl.builder()
                 .id(broker.getId())
+                .name(broker.getName())
                 .server(broker.getServer())
                 .username(broker.getUsername())
                 .password(broker.getPassword())

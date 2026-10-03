@@ -96,6 +96,7 @@ CREATE TABLE devices (
 --changeset brendan:005-create-brokers
 CREATE TABLE brokers (
     id         VARCHAR(36) CHARACTER SET ascii NOT NULL,
+    name       VARCHAR(255) NOT NULL,
     username   VARCHAR(65)  NOT NULL,
     password   VARCHAR(65)  NOT NULL,
     server     VARCHAR(255) NOT NULL,
@@ -106,6 +107,8 @@ CREATE TABLE brokers (
     PRIMARY KEY (id),
     CONSTRAINT fk_brokers_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
 );
+
+CREATE INDEX idx_brokers_name ON brokers (name);
 
 --rollback DROP TABLE brokers;
 

@@ -22,6 +22,9 @@ public class BrokerEntity {
     @Column(name = "id", length = 36, nullable = false, updatable = false)
     private UUID id = UuidCreator.getTimeOrderedEpoch();
 
+    @Column(nullable = false)
+    private String name;
+
     @Column(nullable = false, length = 65)
     private String username;
 

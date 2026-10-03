@@ -38,7 +38,7 @@ firebase:
   credential: ${FIREBASE_CREDENTIAL}
 
 mqtt:
-  broker-id: ${BROKER_ID}
+  broker-name: ${BROKER_NAME}
 
 jwt:
   secret: ${JWT_SECRET}
