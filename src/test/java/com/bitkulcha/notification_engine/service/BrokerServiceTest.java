@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class BrokerServiceImplTest {
+class BrokerServiceTest {
 
     @Mock
     private BrokerRepository brokerRepository;
@@ -73,8 +73,8 @@ class BrokerServiceImplTest {
         assertThat(broker.getId()).isEqualTo(entity.getId());
     }
 
-    private BrokerServiceImpl service(String defaultBrokerName) {
-        return new BrokerServiceImpl(brokerRepository, defaultBrokerName);
+    private BrokerService service(String defaultBrokerName) {
+        return new BrokerService(brokerRepository, defaultBrokerName);
     }
 
     private BrokerEntity brokerEntity(String name) {

@@ -28,7 +28,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class PasswordResetServiceImplTest {
+class PasswordResetServiceTest {
 
     @Mock
     private UserRepository userRepository;
@@ -49,7 +49,7 @@ class PasswordResetServiceImplTest {
     private EmailService emailService;
 
     @InjectMocks
-    private PasswordResetServiceImpl passwordResetService;
+    private PasswordResetService passwordResetService;
 
     private static UserEntity user() {
         UserEntity user = new UserEntity();

@@ -9,8 +9,11 @@ servers:
 paths:
   /notification:
     post:
-      summary: Send MQTT message
+      summary: Send a notification
+      description: Requires an access token for a user with the ADMIN role.
       operationId: sendMessage
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -24,8 +27,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationRequest'
+        '401':
+          description: Missing or invalid access token
+        '403':
+          description: The user does not have the ADMIN role
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     NotificationRequest:
       type: object
@@ -39,6 +52,9 @@ components:
             - EMAIL
         message:
           type: object
+          description: >
+            Depends on type. PUSH: {topic, notification: {title, body}}.
+            EMAIL: {to: [addresses], subject, body}.
       required:
         - type
         - message

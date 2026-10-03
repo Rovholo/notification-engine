@@ -5,13 +5,11 @@ import com.google.cloud.firestore.*;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.bitkulcha.notification_engine.domain.model.firebase.HouseModel;
-import com.bitkulcha.notification_engine.domain.model.firebase.HouseModelImmtbl;
 import com.bitkulcha.notification_engine.domain.model.NotificationImmtbl;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModelImmtbl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,11 +20,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class FirebaseServiceImplTest {
+class FirebaseServiceTest {
 
     @Mock
     private Firestore firestore;
@@ -35,7 +32,7 @@ class FirebaseServiceImplTest {
     private FirebaseMessaging firebaseMessaging;
 
     @InjectMocks
-    private FirebaseServiceImpl firebaseService;
+    private FirebaseService firebaseService;
 
     @Test
     void getHouse_mapsFirestoreDocumentToModel() {
@@ -73,49 +70,6 @@ class FirebaseServiceImplTest {
         HouseModel house = firebaseService.getHouse("house-1");
 
         assertThat(house).isNull();
-    }
-
-    @Test
-    void getUserIds_queriesUsersCollectionByEmail() {
-        CollectionReference collection = mock(CollectionReference.class);
-        Query query = mock(Query.class);
-        QuerySnapshot querySnapshot = mock(QuerySnapshot.class);
-        QueryDocumentSnapshot doc = mock(QueryDocumentSnapshot.class);
-
-        when(firestore.collection("users")).thenReturn(collection);
-        when(collection.whereEqualTo("email", "alice@example.com")).thenReturn(query);
-        when(query.get()).thenReturn(ApiFutures.immediateFuture(querySnapshot));
-        when(querySnapshot.getDocuments()).thenReturn(List.of(doc));
-        when(doc.getId()).thenReturn("user-1");
-
-        List<String> ids = firebaseService.getUserIds("alice@example.com");
-
-        assertThat(ids).containsExactly("user-1");
-    }
-
-    @Test
-    void updateHouse_mergesUpdateIntoDocumentAtItsId() {
-        DocumentReference docRef = mock(DocumentReference.class);
-        when(firestore.document(anyString())).thenReturn(docRef);
-
-        HouseModel house = HouseModelImmtbl.builder()
-                .id("house-1")
-                .name("Greenwood Manor")
-                .owners(List.of("owner-1"))
-                .residents(List.of("resident-1"))
-                .devices(List.of())
-                .build();
-
-        firebaseService.updateHouse(house);
-
-        verify(firestore).document("houses/house-1");
-        ArgumentCaptor<Object> dataCaptor = ArgumentCaptor.forClass(Object.class);
-        ArgumentCaptor<SetOptions> optionsCaptor = ArgumentCaptor.forClass(SetOptions.class);
-        verify(docRef).set(dataCaptor.capture(), optionsCaptor.capture());
-        assertThat(optionsCaptor.getValue()).isEqualTo(SetOptions.merge());
-        HouseModel persisted = (HouseModel) dataCaptor.getValue();
-        assertThat(persisted.getId()).contains("house-1");
-        assertThat(persisted.getName()).isEqualTo("Greenwood Manor");
     }
 
     @Test

@@ -22,8 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.password=",
         "mqtt.broker-name=not-used-here"
 })
-@Import(BrokerServiceImpl.class)
-class BrokerServiceImplIntegrationTest {
+@Import(BrokerService.class)
+class BrokerServiceIntegrationTest {
 
     @Autowired
     private BrokerService brokerService;

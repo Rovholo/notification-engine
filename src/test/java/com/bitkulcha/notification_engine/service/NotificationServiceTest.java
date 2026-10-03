@@ -1,5 +1,7 @@
 package com.bitkulcha.notification_engine.service;
 
+import com.bitkulcha.notification_engine.domain.model.EmailMessageModel;
+import com.bitkulcha.notification_engine.domain.model.EmailMessageModelImmtbl;
 import com.bitkulcha.notification_engine.domain.model.NotificationImmtbl;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModelImmtbl;
@@ -14,7 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
-class NotificationServiceImplTest {
+class NotificationServiceTest {
 
     @Mock
     private MessageChannel mqttOutboundChannel;
@@ -22,11 +24,14 @@ class NotificationServiceImplTest {
     @Mock
     private FirebaseService firebaseService;
 
-    private NotificationServiceImpl notificationService;
+    @Mock
+    private EmailService emailService;
+
+    private NotificationService notificationService;
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationServiceImpl(mqttOutboundChannel, firebaseService);
+        notificationService = new NotificationService(mqttOutboundChannel, firebaseService, emailService);
     }
 
     @Test
@@ -39,6 +44,20 @@ class NotificationServiceImplTest {
         notificationService.sendPushMessage(message);
 
         verify(firebaseService).sendMessage(message);
-        verifyNoInteractions(mqttOutboundChannel);
+        verifyNoInteractions(mqttOutboundChannel, emailService);
+    }
+
+    @Test
+    void sendEmailMessage_forwardsToEmailService() {
+        EmailMessageModel email = EmailMessageModelImmtbl.builder()
+                .addTo("a@b.com")
+                .subject("Door")
+                .body("Your door opened")
+                .build();
+
+        notificationService.sendEmailMessage(email);
+
+        verify(emailService).sendEmail(email);
+        verifyNoInteractions(mqttOutboundChannel, firebaseService);
     }
 }

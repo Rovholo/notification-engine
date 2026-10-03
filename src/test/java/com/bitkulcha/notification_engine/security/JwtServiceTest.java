@@ -3,6 +3,7 @@ package com.bitkulcha.notification_engine.security;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,35 +17,35 @@ class JwtServiceTest {
     void generateToken_thenValidate_returnsOriginalUserId() {
         UUID userId = UUID.randomUUID();
 
-        String token = jwtService.generateToken(userId, "alice");
+        String token = jwtService.generateToken(userId, "alice", Set.of());
 
-        assertThat(jwtService.validateAndGetUserId(token)).contains(userId);
+        assertThat(jwtService.validate(token)).contains(new AccessToken(userId, Set.of()));
     }
 
     @Test
-    void validateAndGetUserId_whenTokenIsGarbage_returnsEmpty() {
-        Optional<UUID> result = jwtService.validateAndGetUserId("not-a-real-token");
+    void validate_whenTokenIsGarbage_returnsEmpty() {
+        Optional<AccessToken> result = jwtService.validate("not-a-real-token");
 
         assertThat(result).isEmpty();
     }
 
     @Test
-    void validateAndGetUserId_whenSignedWithDifferentKey_returnsEmpty() {
+    void validate_whenSignedWithDifferentKey_returnsEmpty() {
         JwtService otherService = new JwtService(
                 "a-completely-different-secret-key-0123456789", 60L);
-        String token = otherService.generateToken(UUID.randomUUID(), "alice");
+        String token = otherService.generateToken(UUID.randomUUID(), "alice", Set.of());
 
-        assertThat(jwtService.validateAndGetUserId(token)).isEmpty();
+        assertThat(jwtService.validate(token)).isEmpty();
     }
 
     @Test
-    void validateAndGetUserId_whenTokenExpired_returnsEmpty() throws InterruptedException {
+    void validate_whenTokenExpired_returnsEmpty() throws InterruptedException {
         JwtService shortLivedService = new JwtService(
                 "unit-test-secret-key-0123456789-abcdefghijklmnop", 0L);
-        String token = shortLivedService.generateToken(UUID.randomUUID(), "alice");
+        String token = shortLivedService.generateToken(UUID.randomUUID(), "alice", Set.of());
 
         Thread.sleep(50);
 
-        assertThat(jwtService.validateAndGetUserId(token)).isEmpty();
+        assertThat(jwtService.validate(token)).isEmpty();
     }
 }

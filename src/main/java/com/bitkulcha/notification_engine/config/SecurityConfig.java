@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.config;
 
+import com.bitkulcha.notification_engine.domain.model.Role;
 import com.bitkulcha.notification_engine.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -7,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -40,7 +42,7 @@ public class SecurityConfig {
         }
 
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
@@ -51,6 +53,7 @@ public class SecurityConfig {
                                 "/auth/password-reset/**").permitAll()
                         // Spring forwards failed requests here; without this a 400 from a public endpoint becomes a 401.
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/notification", "/notification/**").hasRole(Role.ADMIN.name())
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(
                         (request, response, authException) -> response.sendError(HttpStatus.UNAUTHORIZED.value())))

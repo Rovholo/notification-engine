@@ -1,6 +1,7 @@
 package com.bitkulcha.notification_engine.controller;
 
 import com.bitkulcha.notification_engine.api.NotificationApi;
+import com.bitkulcha.notification_engine.domain.model.EmailMessageModel;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 import com.bitkulcha.notification_engine.model.NotificationRequestDto;
 import com.bitkulcha.notification_engine.service.NotificationService;
@@ -25,8 +26,10 @@ public class NotificationController implements NotificationApi {
         switch (request.getType()) {
             case PUSH -> notificationService.sendPushMessage(
                     objectMapper.convertValue(request.getMessage(), PushMessageModel.class));
-            // Sending MQTT and email notifications isn't implemented yet; the request is accepted and nothing is sent.
-            case MQTT, EMAIL -> log.debug("No sender for notification type {}", request.getType());
+            case EMAIL -> notificationService.sendEmailMessage(
+                    objectMapper.convertValue(request.getMessage(), EmailMessageModel.class));
+            // Sending MQTT notifications isn't implemented yet; the request is accepted and nothing is sent.
+            case MQTT -> log.debug("No sender for notification type {}", request.getType());
         }
         return ResponseEntity.ok().body(request);
     }

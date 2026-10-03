@@ -5,16 +5,20 @@ import com.bitkulcha.notification_engine.domain.model.AuthTokensModel;
 import com.bitkulcha.notification_engine.domain.model.AuthTokensModelImmtbl;
 import com.bitkulcha.notification_engine.domain.model.RegistrationModel;
 import com.bitkulcha.notification_engine.domain.model.RegistrationModelImmtbl;
+import com.bitkulcha.notification_engine.domain.model.Role;
 import com.bitkulcha.notification_engine.exception.EmailAlreadyExistsException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
 import com.bitkulcha.notification_engine.exception.InvalidRefreshTokenException;
 import com.bitkulcha.notification_engine.exception.TooManyLoginAttemptsException;
 import com.bitkulcha.notification_engine.exception.UsernameAlreadyExistsException;
 import com.bitkulcha.notification_engine.repository.CredentialRepository;
+import com.bitkulcha.notification_engine.repository.UserFirebaseAuthRepository;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.CredentialEntity;
 import com.bitkulcha.notification_engine.repository.entity.RefreshTokenEntity;
 import com.bitkulcha.notification_engine.repository.entity.UserEntity;
+import com.bitkulcha.notification_engine.repository.entity.UserFirebaseAuthEntity;
+import com.bitkulcha.notification_engine.security.FirebasePasswordVerifier;
 import com.bitkulcha.notification_engine.security.JwtService;
 import com.bitkulcha.notification_engine.security.RefreshTokenService;
 import org.junit.jupiter.api.Test;
@@ -29,6 +33,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +43,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceImplTest {
+class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
@@ -55,8 +60,14 @@ class AuthServiceImplTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private UserFirebaseAuthRepository userFirebaseAuthRepository;
+
+    @Mock
+    private FirebasePasswordVerifier firebasePasswordVerifier;
+
     @InjectMocks
-    private AuthServiceImpl authService;
+    private AuthService authService;
 
     private static RegistrationModel registration() {
         return RegistrationModelImmtbl.builder()
@@ -85,7 +96,7 @@ class AuthServiceImplTest {
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("s3cret")).thenReturn("hashed-password");
-        when(jwtService.generateToken(any(UUID.class), eq("alice"))).thenReturn("token-123");
+        when(jwtService.generateToken(any(UUID.class), eq("alice"), any())).thenReturn("token-123");
         when(refreshTokenService.issue(any(UserEntity.class))).thenReturn("refresh-123");
 
         AuthTokensModel tokens = authService.register(registration());
@@ -139,7 +150,7 @@ class AuthServiceImplTest {
         assertThatThrownBy(() -> authService.register(registration()))
                 .isInstanceOf(UsernameAlreadyExistsException.class);
 
-        verify(jwtService, never()).generateToken(any(), any());
+        verify(jwtService, never()).generateToken(any(), any(), any());
     }
 
     @Test
@@ -175,7 +186,7 @@ class AuthServiceImplTest {
 
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
         when(passwordEncoder.matches("s3cret", "hashed-password")).thenReturn(true);
-        when(jwtService.generateToken(user.getId(), "alice")).thenReturn("token-123");
+        when(jwtService.generateToken(user.getId(), "alice", Set.of())).thenReturn("token-123");
         when(refreshTokenService.issue(user)).thenReturn("refresh-123");
 
         AuthTokensModel tokens = authService.login("alice", "s3cret");
@@ -198,7 +209,7 @@ class AuthServiceImplTest {
         assertThat(credential.getFailedLoginAttempts()).isEqualTo(1);
         assertThat(credential.getLockedUntil()).isNull();
         verify(credentialRepository).save(credential);
-        verify(jwtService, never()).generateToken(any(), any());
+        verify(jwtService, never()).generateToken(any(), any(), any());
     }
 
     @Test
@@ -237,12 +248,26 @@ class AuthServiceImplTest {
 
         when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
         when(passwordEncoder.matches("s3cret", "hashed-password")).thenReturn(true);
-        when(jwtService.generateToken(user.getId(), "alice")).thenReturn("token-123");
+        when(jwtService.generateToken(user.getId(), "alice", Set.of())).thenReturn("token-123");
         when(refreshTokenService.issue(user)).thenReturn("refresh-123");
 
         authService.login("alice", "s3cret");
 
         assertThat(credential.getLockedUntil()).isNull();
+    }
+
+    @Test
+    void login_putsTheUsersRolesInTheAccessToken() {
+        UserEntity user = new UserEntity();
+        user.getRoles().add(Role.ADMIN);
+        CredentialEntity credential = credential(user);
+
+        when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
+        when(passwordEncoder.matches("s3cret", "hashed-password")).thenReturn(true);
+        when(jwtService.generateToken(user.getId(), "alice", Set.of(Role.ADMIN))).thenReturn("token-123");
+        when(refreshTokenService.issue(user)).thenReturn("refresh-123");
+
+        assertThat(authService.login("alice", "s3cret").getAccessToken()).isEqualTo("token-123");
     }
 
     @Test
@@ -255,6 +280,115 @@ class AuthServiceImplTest {
         verify(passwordEncoder, never()).matches(any(), any());
     }
 
+    private static UserFirebaseAuthEntity firebaseAuth(UserEntity user) {
+        UserFirebaseAuthEntity firebaseAuth = new UserFirebaseAuthEntity();
+        firebaseAuth.setUser(user);
+        firebaseAuth.setFirebaseUid("firebase-uid");
+        firebaseAuth.setFirebaseEmail("alice@firebase.example.com");
+        return firebaseAuth;
+    }
+
+    @Test
+    void login_withoutLocalPassword_whenFirebaseAcceptsIt_storesThePasswordAndReturnsTokens() {
+        UserEntity user = new UserEntity();
+        CredentialEntity credential = credential(user);
+        credential.setPassword("");
+
+        when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
+        when(userFirebaseAuthRepository.findByUserId(user.getId())).thenReturn(Optional.of(firebaseAuth(user)));
+        when(firebasePasswordVerifier.verify("alice@firebase.example.com", "s3cret", "firebase-uid")).thenReturn(true);
+        when(passwordEncoder.encode("s3cret")).thenReturn("hashed-password");
+        when(jwtService.generateToken(user.getId(), "alice", Set.of())).thenReturn("token-123");
+        when(refreshTokenService.issue(user)).thenReturn("refresh-123");
+
+        AuthTokensModel tokens = authService.login("alice", "s3cret");
+
+        assertThat(tokens).isEqualTo(tokens("token-123", "refresh-123"));
+        assertThat(credential.getPassword()).isEqualTo("hashed-password");
+        verify(credentialRepository).save(credential);
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void login_withoutLocalPassword_whenFirebaseEmailIsMissing_usesTheUserEmail() {
+        UserEntity user = new UserEntity();
+        user.setEmail("alice@example.com");
+        CredentialEntity credential = credential(user);
+        credential.setPassword("");
+        UserFirebaseAuthEntity firebaseAuth = firebaseAuth(user);
+        firebaseAuth.setFirebaseEmail(null);
+
+        when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
+        when(userFirebaseAuthRepository.findByUserId(user.getId())).thenReturn(Optional.of(firebaseAuth));
+        when(firebasePasswordVerifier.verify("alice@example.com", "s3cret", "firebase-uid")).thenReturn(true);
+        when(passwordEncoder.encode("s3cret")).thenReturn("hashed-password");
+        when(jwtService.generateToken(user.getId(), "alice", Set.of())).thenReturn("token-123");
+        when(refreshTokenService.issue(user)).thenReturn("refresh-123");
+
+        authService.login("alice", "s3cret");
+
+        assertThat(credential.getPassword()).isEqualTo("hashed-password");
+    }
+
+    @Test
+    void login_withoutLocalPassword_whenFirebaseRejectsIt_throwsInvalidCredentialsAndCountsTheAttempt() {
+        UserEntity user = new UserEntity();
+        CredentialEntity credential = credential(user);
+        credential.setPassword("");
+
+        when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
+        when(userFirebaseAuthRepository.findByUserId(user.getId())).thenReturn(Optional.of(firebaseAuth(user)));
+        when(firebasePasswordVerifier.verify("alice@firebase.example.com", "wrong", "firebase-uid")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.login("alice", "wrong"))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        assertThat(credential.getPassword()).isEmpty();
+        assertThat(credential.getFailedLoginAttempts()).isEqualTo(1);
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void login_withoutLocalPassword_whenUserIsNotAFirebaseUser_throwsInvalidCredentials() {
+        UserEntity user = new UserEntity();
+        CredentialEntity credential = credential(user);
+        credential.setPassword("");
+
+        when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
+        when(userFirebaseAuthRepository.findByUserId(user.getId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.login("alice", "s3cret"))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verifyNoInteractions(firebasePasswordVerifier);
+    }
+
+    @Test
+    void login_withoutLocalPassword_withEmptyPassword_throwsWithoutCallingFirebase() {
+        CredentialEntity credential = credential(new UserEntity());
+        credential.setPassword("");
+
+        when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
+
+        assertThatThrownBy(() -> authService.login("alice", ""))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verifyNoInteractions(userFirebaseAuthRepository, firebasePasswordVerifier);
+    }
+
+    @Test
+    void login_withLocalPassword_neverCallsFirebase() {
+        CredentialEntity credential = credential(new UserEntity());
+
+        when(credentialRepository.findByUsername("alice")).thenReturn(Optional.of(credential));
+        when(passwordEncoder.matches("wrong", "hashed-password")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.login("alice", "wrong"))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verifyNoInteractions(userFirebaseAuthRepository, firebasePasswordVerifier);
+    }
+
     @Test
     void refresh_withActiveToken_revokesItAndIssuesNewTokens() {
         UserEntity user = new UserEntity();
@@ -264,7 +398,7 @@ class AuthServiceImplTest {
 
         when(refreshTokenService.find("refresh-old")).thenReturn(Optional.of(existing));
         when(credentialRepository.findByUserId(user.getId())).thenReturn(Optional.of(credential(user)));
-        when(jwtService.generateToken(user.getId(), "alice")).thenReturn("token-new");
+        when(jwtService.generateToken(user.getId(), "alice", Set.of())).thenReturn("token-new");
         when(refreshTokenService.issue(user)).thenReturn("refresh-new");
 
         AuthTokensModel tokens = authService.refresh("refresh-old");

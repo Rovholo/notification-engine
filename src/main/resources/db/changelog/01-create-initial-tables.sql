@@ -141,3 +141,13 @@ CREATE TABLE password_reset_code (
 );
 
 --rollback DROP TABLE password_reset_code;
+
+--changeset brendan:008-create-user-role
+CREATE TABLE user_role (
+                           user_id VARCHAR(36) CHARACTER SET ascii NOT NULL,
+                           role    VARCHAR(32) NOT NULL,
+                           PRIMARY KEY (user_id, role),
+                           CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+--rollback DROP TABLE user_role;

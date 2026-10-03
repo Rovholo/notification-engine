@@ -30,7 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class HomeQServiceImplTest {
+class HomeQServiceTest {
 
     @Mock
     private HouseRepository houseRepository;
@@ -39,7 +39,7 @@ class HomeQServiceImplTest {
     private UserRepository userRepository;
 
     @InjectMocks
-    private HomeQServiceImpl homeQService;
+    private HomeQService homeQService;
 
     @Test
     void getHousesForMember_returnsHouseModels_sortedByName() {

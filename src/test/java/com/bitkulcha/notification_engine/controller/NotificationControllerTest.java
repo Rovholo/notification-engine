@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.controller;
 
+import com.bitkulcha.notification_engine.domain.model.EmailMessageModel;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 import com.bitkulcha.notification_engine.model.NotificationRequestDto;
 import com.bitkulcha.notification_engine.service.NotificationService;
@@ -12,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,13 +60,20 @@ class NotificationControllerTest {
     }
 
     @Test
-    void sendMessage_email_isAcceptedButNotSent() {
+    void sendMessage_email_convertsMessageToModelAndSendsIt() {
         NotificationRequestDto request = new NotificationRequestDto(
-                NotificationRequestDto.TypeEnum.EMAIL, Map.of("to", "a@b.com"));
+                NotificationRequestDto.TypeEnum.EMAIL,
+                Map.of("to", List.of("a@b.com", "c@d.com"), "subject", "Door", "body", "Your door opened"));
 
         ResponseEntity<NotificationRequestDto> response = notificationController.sendMessage(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        verifyNoInteractions(notificationService);
+        assertThat(response.getBody()).isSameAs(request);
+        ArgumentCaptor<EmailMessageModel> captor = ArgumentCaptor.forClass(EmailMessageModel.class);
+        verify(notificationService).sendEmailMessage(captor.capture());
+        EmailMessageModel sent = captor.getValue();
+        assertThat(sent.getTo()).containsExactly("a@b.com", "c@d.com");
+        assertThat(sent.getSubject()).isEqualTo("Door");
+        assertThat(sent.getBody()).isEqualTo("Your door opened");
     }
 }

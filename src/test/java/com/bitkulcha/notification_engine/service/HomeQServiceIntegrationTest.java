@@ -27,8 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.username=sa",
         "spring.datasource.password="
 })
-@Import(HomeQServiceImpl.class)
-class HomeQServiceImplIntegrationTest {
+@Import(HomeQService.class)
+class HomeQServiceIntegrationTest {
 
     @Autowired
     private HomeQService homeQService;
