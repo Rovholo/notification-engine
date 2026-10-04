@@ -16,7 +16,7 @@ spring:
 
 firebase:
   credential: ${FIREBASE_CREDENTIAL:firebase-adminsdk.json}
-  web-api-key: ${FIREBASE_WEB_API_KEY:AIzaSyDzrJ_WzjOY3aWexbsr5eSmZkZJI0JaA6Y}
+  web-api-key: ${FIREBASE_WEB_API_KEY:}
 
 mqtt:
   broker-name: test
