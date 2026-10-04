@@ -151,3 +151,9 @@ CREATE TABLE user_role (
 );
 
 --rollback DROP TABLE user_role;
+
+--changeset brendan:009-add-device-setup-status
+-- The default only fills in existing devices, which are already set up. New devices are created as ADDED by the app.
+ALTER TABLE devices ADD COLUMN setup_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+--rollback ALTER TABLE devices DROP COLUMN setup_status;

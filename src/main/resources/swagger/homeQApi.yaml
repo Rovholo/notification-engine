@@ -76,6 +76,45 @@ paths:
         '404':
           description: No such house, or the user is not a member of it
 
+  /homeq/houses/{houseId}/devices/{deviceId}:
+    put:
+      summary: Update a device in a house the authenticated user owns
+      operationId: updateDevice
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '400':
+          description: Invalid request body, house id or device id
+        '403':
+          description: The user lives in the house but is not an owner
+        '404':
+          description: No such house or device, or the user is not a member of the house
+
 
 components:
   securitySchemes:
@@ -139,6 +178,7 @@ components:
         - id
         - name
         - type
+        - setupStatus
       properties:
         id:
           type: string
@@ -150,10 +190,19 @@ components:
         status:
           type: string
           example: "closed"
+        setupStatus:
+          $ref: '#/components/schemas/DeviceSetupStatus'
 
     DeviceType:
       type: string
       enum: [GARAGE_DOOR, LIGHT, AIR_CON, SENSOR]
+
+    DeviceSetupStatus:
+      type: string
+      description: >
+        Where the device is in its setup lifecycle, separate from its live status.
+        ADDED devices haven't received their wifi/broker details yet; only ACTIVE devices are used over MQTT.
+      enum: [ADDED, ACTIVE, INACTIVE]
 
     CreateHouseRequest:
       type: object
@@ -185,3 +234,23 @@ components:
           type: string
           maxLength: 50
           example: "closed"
+        setupStatus:
+          $ref: '#/components/schemas/DeviceSetupStatus'
+
+    UpdateDeviceRequest:
+      type: object
+      required:
+        - name
+        - type
+        - setupStatus
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '.*\S.*'
+          example: "Front garage"
+        type:
+          $ref: '#/components/schemas/DeviceType'
+        setupStatus:
+          $ref: '#/components/schemas/DeviceSetupStatus'

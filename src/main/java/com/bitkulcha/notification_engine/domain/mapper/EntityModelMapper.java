@@ -50,6 +50,7 @@ public final class EntityModelMapper {
                 .name(device.getName())
                 .type(device.getType())
                 .status(Optional.ofNullable(device.getStatus()))
+                .setupStatus(device.getSetupStatus())
                 .build();
     }
 

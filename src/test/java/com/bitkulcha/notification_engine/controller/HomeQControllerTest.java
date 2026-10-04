@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.controller;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.DeviceModelImmtbl;
@@ -10,9 +11,11 @@ import com.bitkulcha.notification_engine.domain.model.UserModelImmtbl;
 import com.bitkulcha.notification_engine.model.CreateDeviceRequestDto;
 import com.bitkulcha.notification_engine.model.CreateHouseRequestDto;
 import com.bitkulcha.notification_engine.model.DeviceDto;
+import com.bitkulcha.notification_engine.model.DeviceSetupStatusDto;
 import com.bitkulcha.notification_engine.model.DeviceTypeDto;
 import com.bitkulcha.notification_engine.model.HouseDetailsDto;
 import com.bitkulcha.notification_engine.model.HouseMemberDto;
+import com.bitkulcha.notification_engine.model.UpdateDeviceRequestDto;
 import com.bitkulcha.notification_engine.service.HomeQService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +54,7 @@ class HomeQControllerTest {
         UUID userId = authenticate();
         UserModel alice = user("Alice");
         UserModel charlie = user("Charlie");
-        DeviceModel garage = device("Garage", DeviceTypeEnum.GARAGE_DOOR, "closed");
+        DeviceModel garage = device("Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", DeviceSetupStatusEnum.ACTIVE);
         HouseModel house = HouseModelImmtbl.builder()
                 .id(UUID.randomUUID())
                 .name("Greenwood Manor")
@@ -78,6 +81,7 @@ class HomeQControllerTest {
                 assertThat(device.getId()).isEqualTo(garage.getId().toString());
                 assertThat(device.getType()).isEqualTo(DeviceTypeDto.GARAGE_DOOR);
                 assertThat(device.getStatus()).isEqualTo("closed");
+                assertThat(device.getSetupStatus()).isEqualTo(DeviceSetupStatusDto.ACTIVE);
             });
         });
     }
@@ -99,8 +103,8 @@ class HomeQControllerTest {
     void addDevice_passesRequestFieldsToService_andReturnsCreated() {
         UUID userId = authenticate();
         UUID houseId = UUID.randomUUID();
-        DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null);
-        when(homeQService.addDevice(userId, houseId, "Porch light", DeviceTypeEnum.LIGHT, null)).thenReturn(light);
+        DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ADDED);
+        when(homeQService.addDevice(userId, houseId, "Porch light", DeviceTypeEnum.LIGHT, null, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT));
@@ -109,6 +113,38 @@ class HomeQControllerTest {
         assertThat(response.getBody().getId()).isEqualTo(light.getId().toString());
         assertThat(response.getBody().getType()).isEqualTo(DeviceTypeDto.LIGHT);
         assertThat(response.getBody().getStatus()).isNull();
+        assertThat(response.getBody().getSetupStatus()).isEqualTo(DeviceSetupStatusDto.ADDED);
+    }
+
+    @Test
+    void addDevice_passesSetupStatusToService() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ACTIVE);
+        when(homeQService.addDevice(userId, houseId, "Porch light", DeviceTypeEnum.LIGHT, null,
+                DeviceSetupStatusEnum.ACTIVE)).thenReturn(light);
+
+        ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
+                new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).setupStatus(DeviceSetupStatusDto.ACTIVE));
+
+        assertThat(response.getBody().getSetupStatus()).isEqualTo(DeviceSetupStatusDto.ACTIVE);
+    }
+
+    @Test
+    void updateDevice_passesRequestFieldsToService_andReturnsOk() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        DeviceModel garage = device("Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", DeviceSetupStatusEnum.ACTIVE);
+        when(homeQService.updateDevice(userId, houseId, garage.getId(), "Garage", DeviceTypeEnum.GARAGE_DOOR,
+                DeviceSetupStatusEnum.ACTIVE)).thenReturn(garage);
+
+        ResponseEntity<DeviceDto> response = homeQController.updateDevice(houseId, garage.getId(),
+                new UpdateDeviceRequestDto("Garage", DeviceTypeDto.GARAGE_DOOR, DeviceSetupStatusDto.ACTIVE));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getId()).isEqualTo(garage.getId().toString());
+        assertThat(response.getBody().getSetupStatus()).isEqualTo(DeviceSetupStatusDto.ACTIVE);
+        assertThat(response.getBody().getStatus()).isEqualTo("closed");
     }
 
     private UUID authenticate() {
@@ -127,12 +163,13 @@ class HomeQControllerTest {
                 .build();
     }
 
-    private DeviceModel device(String name, DeviceTypeEnum type, String status) {
+    private DeviceModel device(String name, DeviceTypeEnum type, String status, DeviceSetupStatusEnum setupStatus) {
         return DeviceModelImmtbl.builder()
                 .id(UUID.randomUUID())
                 .name(name)
                 .type(type)
                 .status(Optional.ofNullable(status))
+                .setupStatus(setupStatus)
                 .build();
     }
 }

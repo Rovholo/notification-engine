@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.service;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
@@ -44,8 +45,8 @@ class HomeQServiceIntegrationTest {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
 
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
-        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed");
-        homeQService.addDevice(aliceId, house.getId(), "Porch light", DeviceTypeEnum.LIGHT, null);
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
+        homeQService.addDevice(aliceId, house.getId(), "Porch light", DeviceTypeEnum.LIGHT, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -59,7 +60,28 @@ class HomeQServiceIntegrationTest {
             assertThat(loaded.getDevices().getFirst().getId()).isEqualTo(garage.getId());
             assertThat(loaded.getDevices().getFirst().getStatus()).contains("closed");
             assertThat(loaded.getDevices().getLast().getStatus()).isEmpty();
+            assertThat(loaded.getDevices()).extracting(DeviceModel::getSetupStatus)
+                    .containsOnly(DeviceSetupStatusEnum.ADDED);
         });
+    }
+
+    @Test
+    void updateDevice_persistsSetupStatus() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
+        entityManager.flush();
+        entityManager.clear();
+
+        homeQService.updateDevice(aliceId, house.getId(), garage.getId(), "Main garage", DeviceTypeEnum.GARAGE_DOOR,
+                DeviceSetupStatusEnum.ACTIVE);
+        entityManager.flush();
+        entityManager.clear();
+
+        DeviceModel loaded = homeQService.getHousesForMember(aliceId).getFirst().getDevices().getFirst();
+        assertThat(loaded.getName()).isEqualTo("Main garage");
+        assertThat(loaded.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ACTIVE);
+        assertThat(loaded.getStatus()).contains("closed");
     }
 
     private UserEntity newUser(String name) {

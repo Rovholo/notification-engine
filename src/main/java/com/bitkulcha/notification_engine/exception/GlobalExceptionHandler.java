@@ -48,6 +48,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
     }
 
+    @ExceptionHandler(DeviceNotFoundException.class)
+    public ResponseEntity<String> handleDeviceNotFound(DeviceNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    }
+
     @ExceptionHandler(BrokerNotFoundException.class)
     public ResponseEntity<String> handleBrokerNotFound(BrokerNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());

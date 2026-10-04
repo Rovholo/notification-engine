@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.repository.entity;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.Column;
@@ -46,6 +47,10 @@ public class DeviceEntity {
 
     @Column(length = 50)
     private String status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "setup_status", nullable = false, length = 20)
+    private DeviceSetupStatusEnum setupStatus = DeviceSetupStatusEnum.ADDED;
 
     @LastModifiedBy
     @JdbcTypeCode(SqlTypes.VARCHAR)

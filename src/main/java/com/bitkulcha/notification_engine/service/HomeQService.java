@@ -1,9 +1,11 @@
 package com.bitkulcha.notification_engine.service;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.mapper.EntityModelMapper;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
+import com.bitkulcha.notification_engine.exception.DeviceNotFoundException;
 import com.bitkulcha.notification_engine.exception.HouseAccessDeniedException;
 import com.bitkulcha.notification_engine.exception.HouseNotFoundException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
@@ -51,24 +53,47 @@ public class HomeQService {
     }
 
     @Transactional
-    public DeviceModel addDevice(UUID userId, UUID houseId, String name, DeviceTypeEnum type, String status) {
-        HouseEntity house = houseRepository.findById(houseId)
-                .filter(h -> isMember(h, userId))
-                // Non-members get the same 404 as a missing house so house ids can't be probed.
-                .orElseThrow(() -> new HouseNotFoundException("No such house"));
-        if (!containsUser(house.getOwners(), userId)) {
-            throw new HouseAccessDeniedException("Only owners can add devices to a house");
-        }
+    public DeviceModel addDevice(UUID userId, UUID houseId, String name, DeviceTypeEnum type, String status,
+                                 DeviceSetupStatusEnum setupStatus) {
+        HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can add devices to a house");
 
         DeviceEntity device = new DeviceEntity();
         device.setHouse(house);
         device.setName(name.strip());
         device.setType(type);
         device.setStatus(status);
+        // New devices haven't been sent their wifi/broker details yet unless the caller says otherwise.
+        device.setSetupStatus(setupStatus != null ? setupStatus : DeviceSetupStatusEnum.ADDED);
         // Persisted by the cascade on HouseEntity.devices. Calling save() would merge a copy, because the id is
         // pre-assigned, and the copy would clash with this instance when the cascade runs.
         house.getDevices().add(device);
         return EntityModelMapper.toModel(device);
+    }
+
+    @Transactional
+    public DeviceModel updateDevice(UUID userId, UUID houseId, UUID deviceId, String name, DeviceTypeEnum type,
+                                    DeviceSetupStatusEnum setupStatus) {
+        HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can update devices in a house");
+        DeviceEntity device = house.getDevices().stream()
+                .filter(d -> d.getId().equals(deviceId))
+                .findFirst()
+                .orElseThrow(() -> new DeviceNotFoundException("No such device in this house"));
+
+        device.setName(name.strip());
+        device.setType(type);
+        device.setSetupStatus(setupStatus);
+        return EntityModelMapper.toModel(device);
+    }
+
+    private HouseEntity findHouseAsOwner(UUID userId, UUID houseId, String notOwnerMessage) {
+        HouseEntity house = houseRepository.findById(houseId)
+                .filter(h -> isMember(h, userId))
+                // Non-members get the same 404 as a missing house so house ids can't be probed.
+                .orElseThrow(() -> new HouseNotFoundException("No such house"));
+        if (!containsUser(house.getOwners(), userId)) {
+            throw new HouseAccessDeniedException(notOwnerMessage);
+        }
+        return house;
     }
 
     private static boolean isMember(HouseEntity house, UUID userId) {

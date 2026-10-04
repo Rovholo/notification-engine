@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.domain.mapper;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.model.AccountModel;
 import com.bitkulcha.notification_engine.domain.model.BrokerModel;
@@ -85,6 +86,7 @@ class EntityModelMapperTest {
         assertThat(device.getName()).isEqualTo("Garage");
         assertThat(device.getType()).isEqualTo(DeviceTypeEnum.GARAGE_DOOR);
         assertThat(device.getStatus()).contains("closed");
+        assertThat(device.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ADDED);
     }
 
     @Test

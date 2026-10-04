@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.domain.model;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import org.immutables.value.Value;
 
@@ -12,4 +13,5 @@ public interface DeviceModel {
     String getName();
     DeviceTypeEnum getType();
     Optional<String> getStatus();
+    DeviceSetupStatusEnum getSetupStatus();
 }
