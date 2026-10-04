@@ -1,6 +1,10 @@
 server:
   servlet:
     context-path: /api
+  # Heroku's router terminates HTTPS and passes the original scheme/host in X-Forwarded-* headers.
+  forward-headers-strategy: framework
+  # Heroku sends SIGTERM and allows 30s before killing the dyno, so let in-flight requests finish.
+  shutdown: graceful
 
 logging:
   level:
@@ -11,15 +15,15 @@ logging:
 spring:
   application:
     name: notification-engine
+  # The connection itself comes from DATABASE_URL (see DataSourceConfig); these settings tune the pool.
+  # Every dyno has its own pool, so dynos x DB_POOL_SIZE must stay under the Postgres plan's connection limit.
   datasource:
-    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.mariadb.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: ${SHOW_SQL:false}
   liquibase:
     change-log: classpath:db/changelog/changelog-master.yaml
   mail:

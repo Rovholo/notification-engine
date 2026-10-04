@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:house-repository-test;MODE=MariaDB;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:house-repository-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password="
