@@ -11,12 +11,6 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Heroku only provides DATABASE_URL (postgres://user:pass@host:port/db), which JDBC can't read,
- * so it's converted here. Heroku rotates the credentials and restarts the dyno with a new URL,
- * so it must be read at startup rather than copied into config.
- * Without DATABASE_URL (e.g. H2 tests), the standard spring.datasource.* properties apply instead.
- */
 @Configuration
 @ConditionalOnProperty("DATABASE_URL")
 public class DataSourceConfig {

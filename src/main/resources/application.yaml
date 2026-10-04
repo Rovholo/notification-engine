@@ -1,9 +1,7 @@
 server:
   servlet:
     context-path: /api
-  # Heroku's router terminates HTTPS and passes the original scheme/host in X-Forwarded-* headers.
   forward-headers-strategy: framework
-  # Heroku sends SIGTERM and allows 30s before killing the dyno, so let in-flight requests finish.
   shutdown: graceful
 
 logging:
@@ -15,8 +13,6 @@ logging:
 spring:
   application:
     name: notification-engine
-  # The connection itself comes from DATABASE_URL (see DataSourceConfig); these settings tune the pool.
-  # Every dyno has its own pool, so dynos x DB_POOL_SIZE must stay under the Postgres plan's connection limit.
   datasource:
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:5}
@@ -34,12 +30,10 @@ spring:
     properties:
       mail.smtp.auth: ${MAIL_SMTP_AUTH:true}
       mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:true}
-      # Port 465 expects TLS from the first byte: set MAIL_SMTP_SSL=true and MAIL_SMTP_STARTTLS=false for it.
       mail.smtp.ssl.enable: ${MAIL_SMTP_SSL:false}
       mail.smtp.connectiontimeout: 10000
       mail.smtp.timeout: 10000
       mail.smtp.writetimeout: 10000
-      # Prints the whole SMTP conversation, including what the server replies after accepting a message.
       mail.debug: ${MAIL_DEBUG:false}
 
 mail:
@@ -47,7 +41,6 @@ mail:
 
 firebase:
   credential: ${FIREBASE_CREDENTIAL}
-  # Web API key from Firebase project settings, used to check passwords of users still on Firebase Auth.
   web-api-key: ${FIREBASE_WEB_API_KEY:}
 
 mqtt:
@@ -58,7 +51,6 @@ jwt:
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
   refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
 
-# API docs are off unless a profile opts in (see application-local.yaml), so prod never exposes them.
 springdoc:
   api-docs:
     enabled: ${SWAGGER_ENABLED:false}
