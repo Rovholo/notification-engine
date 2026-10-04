@@ -5,12 +5,6 @@ logging:
         notification_engine: DEBUG
 
 spring:
-#  datasource:
-#    url: jdbc:h2:mem:testdb;MODE=MariaDB;DB_CLOSE_DELAY=-1
-#    username: sa
-#    password:
-#    driver-class-name: org.h2.Driver
-#  # Unused locally: MockEmailService writes emails to the log instead of sending email.
   mail:
     host: localhost
 
