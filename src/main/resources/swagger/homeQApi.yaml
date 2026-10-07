@@ -70,11 +70,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Device'
         '400':
-          description: Invalid request body or house id
+          description: Invalid request body or house id, or the device id is not a UUIDv7
         '403':
           description: The user lives in the house but is not an owner
         '404':
           description: No such house, or the user is not a member of it
+        '409':
+          description: The device id is already used by a device in another house
 
   /homeq/houses/{houseId}/devices/{deviceId}:
     put:
@@ -222,6 +224,14 @@ components:
         - name
         - type
       properties:
+        id:
+          type: string
+          format: uuid
+          description: >
+            Optional UUIDv7 chosen by the app, so it can configure the device before it is back online.
+            Retrying with the same id updates and returns the device instead of adding another.
+            The server picks one when it is omitted.
+          example: "01920c2e-7b5a-7cc4-9f3e-2d6a1b8e4f10"
         name:
           type: string
           minLength: 1

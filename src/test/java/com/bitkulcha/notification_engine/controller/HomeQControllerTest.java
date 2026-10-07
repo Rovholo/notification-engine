@@ -104,7 +104,7 @@ class HomeQControllerTest {
         UUID userId = authenticate();
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ADDED);
-        when(homeQService.addDevice(userId, houseId, "Porch light", DeviceTypeEnum.LIGHT, null, null)).thenReturn(light);
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT));
@@ -121,13 +121,28 @@ class HomeQControllerTest {
         UUID userId = authenticate();
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ACTIVE);
-        when(homeQService.addDevice(userId, houseId, "Porch light", DeviceTypeEnum.LIGHT, null,
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null,
                 DeviceSetupStatusEnum.ACTIVE)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).setupStatus(DeviceSetupStatusDto.ACTIVE));
 
         assertThat(response.getBody().getSetupStatus()).isEqualTo(DeviceSetupStatusDto.ACTIVE);
+    }
+
+    @Test
+    void addDevice_passesIdToService() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ACTIVE);
+        when(homeQService.addDevice(userId, houseId, light.getId(), "Porch light", DeviceTypeEnum.LIGHT, null,
+                DeviceSetupStatusEnum.ACTIVE)).thenReturn(light);
+
+        ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
+                new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).id(light.getId())
+                        .setupStatus(DeviceSetupStatusDto.ACTIVE));
+
+        assertThat(response.getBody().getId()).isEqualTo(light.getId().toString());
     }
 
     @Test

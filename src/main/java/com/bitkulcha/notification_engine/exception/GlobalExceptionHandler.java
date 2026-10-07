@@ -53,6 +53,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
     }
 
+    @ExceptionHandler(InvalidDeviceIdException.class)
+    public ResponseEntity<String> handleInvalidDeviceId(InvalidDeviceIdException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+    }
+
+    @ExceptionHandler(DeviceIdConflictException.class)
+    public ResponseEntity<String> handleDeviceIdConflict(DeviceIdConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+    }
+
     @ExceptionHandler(BrokerNotFoundException.class)
     public ResponseEntity<String> handleBrokerNotFound(BrokerNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());

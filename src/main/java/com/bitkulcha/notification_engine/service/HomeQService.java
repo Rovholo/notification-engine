@@ -5,10 +5,12 @@ import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.mapper.EntityModelMapper;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
+import com.bitkulcha.notification_engine.exception.DeviceIdConflictException;
 import com.bitkulcha.notification_engine.exception.DeviceNotFoundException;
 import com.bitkulcha.notification_engine.exception.HouseAccessDeniedException;
 import com.bitkulcha.notification_engine.exception.HouseNotFoundException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
+import com.bitkulcha.notification_engine.exception.InvalidDeviceIdException;
 import com.bitkulcha.notification_engine.repository.HouseRepository;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.DeviceEntity;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -52,21 +55,37 @@ public class HomeQService {
         return EntityModelMapper.toModel(houseRepository.save(house));
     }
 
+    /**
+     * The app may pick {@code deviceId} itself, so it can send it to the device while offline on the device's access
+     * point. The same id can then arrive again on a retry, so a device that already has it in this house is updated
+     * and returned rather than added twice.
+     */
     @Transactional
-    public DeviceModel addDevice(UUID userId, UUID houseId, String name, DeviceTypeEnum type, String status,
-                                 DeviceSetupStatusEnum setupStatus) {
+    public DeviceModel addDevice(UUID userId, UUID houseId, UUID deviceId, String name, DeviceTypeEnum type,
+                                 String status, DeviceSetupStatusEnum setupStatus) {
+        // Time ordered ids keep inserts at the end of the primary key index, like the ones the server makes.
+        if (deviceId != null && deviceId.version() != 7) {
+            throw new InvalidDeviceIdException("Device id must be a UUIDv7");
+        }
         HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can add devices to a house");
 
-        DeviceEntity device = new DeviceEntity();
-        device.setHouse(house);
+        DeviceEntity device = deviceId == null ? null : findDevice(house, deviceId).orElse(null);
+        if (device == null) {
+            if (deviceId != null && houseRepository.existsDeviceById(deviceId)) {
+                throw new DeviceIdConflictException("Device id is already in use");
+            }
+            device = new DeviceEntity();
+            if (deviceId != null) device.setId(deviceId);
+            device.setHouse(house);
+            // Persisted by the cascade on HouseEntity.devices. Calling save() would merge a copy, because the id is
+            // pre-assigned, and the copy would clash with this instance when the cascade runs.
+            house.getDevices().add(device);
+        }
         device.setName(name.strip());
         device.setType(type);
         device.setStatus(status);
         // New devices haven't been sent their wifi/broker details yet unless the caller says otherwise.
         device.setSetupStatus(setupStatus != null ? setupStatus : DeviceSetupStatusEnum.ADDED);
-        // Persisted by the cascade on HouseEntity.devices. Calling save() would merge a copy, because the id is
-        // pre-assigned, and the copy would clash with this instance when the cascade runs.
-        house.getDevices().add(device);
         return EntityModelMapper.toModel(device);
     }
 
@@ -74,15 +93,17 @@ public class HomeQService {
     public DeviceModel updateDevice(UUID userId, UUID houseId, UUID deviceId, String name, DeviceTypeEnum type,
                                     DeviceSetupStatusEnum setupStatus) {
         HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can update devices in a house");
-        DeviceEntity device = house.getDevices().stream()
-                .filter(d -> d.getId().equals(deviceId))
-                .findFirst()
+        DeviceEntity device = findDevice(house, deviceId)
                 .orElseThrow(() -> new DeviceNotFoundException("No such device in this house"));
 
         device.setName(name.strip());
         device.setType(type);
         device.setSetupStatus(setupStatus);
         return EntityModelMapper.toModel(device);
+    }
+
+    private static Optional<DeviceEntity> findDevice(HouseEntity house, UUID deviceId) {
+        return house.getDevices().stream().filter(d -> d.getId().equals(deviceId)).findFirst();
     }
 
     private HouseEntity findHouseAsOwner(UUID userId, UUID houseId, String notOwnerMessage) {

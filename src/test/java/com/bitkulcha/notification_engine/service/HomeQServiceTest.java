@@ -5,15 +5,18 @@ import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
 import com.bitkulcha.notification_engine.domain.model.UserModel;
+import com.bitkulcha.notification_engine.exception.DeviceIdConflictException;
 import com.bitkulcha.notification_engine.exception.DeviceNotFoundException;
 import com.bitkulcha.notification_engine.exception.HouseAccessDeniedException;
 import com.bitkulcha.notification_engine.exception.HouseNotFoundException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
+import com.bitkulcha.notification_engine.exception.InvalidDeviceIdException;
 import com.bitkulcha.notification_engine.repository.HouseRepository;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.DeviceEntity;
 import com.bitkulcha.notification_engine.repository.entity.HouseEntity;
 import com.bitkulcha.notification_engine.repository.entity.UserEntity;
+import com.github.f4b6a3.uuid.UuidCreator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -97,7 +100,7 @@ class HomeQServiceTest {
         house.getOwners().add(alice);
         when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
 
-        DeviceModel result = homeQService.addDevice(alice.getId(), house.getId(),
+        DeviceModel result = homeQService.addDevice(alice.getId(), house.getId(), null,
                 " Garage ", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
 
         assertThat(result.getName()).isEqualTo("Garage");
@@ -117,7 +120,7 @@ class HomeQServiceTest {
         house.getResidents().add(charlie);
         when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
 
-        assertThatThrownBy(() -> homeQService.addDevice(charlie.getId(), house.getId(),
+        assertThatThrownBy(() -> homeQService.addDevice(charlie.getId(), house.getId(), null,
                 "Garage", DeviceTypeEnum.GARAGE_DOOR, null, null))
                 .isInstanceOf(HouseAccessDeniedException.class);
         assertThat(house.getDevices()).isEmpty();
@@ -130,7 +133,7 @@ class HomeQServiceTest {
         house.getOwners().add(user("Alice"));
         when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
 
-        assertThatThrownBy(() -> homeQService.addDevice(dave.getId(), house.getId(),
+        assertThatThrownBy(() -> homeQService.addDevice(dave.getId(), house.getId(), null,
                 "Garage", DeviceTypeEnum.GARAGE_DOOR, null, null))
                 .isInstanceOf(HouseNotFoundException.class);
         assertThat(house.getDevices()).isEmpty();
@@ -141,7 +144,7 @@ class HomeQServiceTest {
         UUID houseId = UUID.randomUUID();
         when(houseRepository.findById(houseId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> homeQService.addDevice(UUID.randomUUID(), houseId,
+        assertThatThrownBy(() -> homeQService.addDevice(UUID.randomUUID(), houseId, null,
                 "Garage", DeviceTypeEnum.GARAGE_DOOR, null, null))
                 .isInstanceOf(HouseNotFoundException.class);
     }
@@ -153,10 +156,66 @@ class HomeQServiceTest {
         house.getOwners().add(alice);
         when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
 
-        DeviceModel result = homeQService.addDevice(alice.getId(), house.getId(),
+        DeviceModel result = homeQService.addDevice(alice.getId(), house.getId(), null,
                 "Garage", DeviceTypeEnum.GARAGE_DOOR, null, DeviceSetupStatusEnum.ACTIVE);
 
         assertThat(result.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ACTIVE);
+    }
+
+    @Test
+    void addDevice_withId_usesIt() {
+        UserEntity alice = user("Alice");
+        HouseEntity house = house("Greenwood Manor");
+        house.getOwners().add(alice);
+        UUID deviceId = UuidCreator.getTimeOrderedEpoch();
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+        when(houseRepository.existsDeviceById(deviceId)).thenReturn(false);
+
+        DeviceModel result = homeQService.addDevice(alice.getId(), house.getId(), deviceId,
+                "Garage", DeviceTypeEnum.GARAGE_DOOR, null, DeviceSetupStatusEnum.ACTIVE);
+
+        assertThat(result.getId()).isEqualTo(deviceId);
+        assertThat(house.getDevices()).singleElement().satisfies(device -> assertThat(device.getId()).isEqualTo(deviceId));
+    }
+
+    @Test
+    void addDevice_withIdAlreadyInTheHouse_updatesThatDevice_insteadOfAddingAnother() {
+        UserEntity alice = user("Alice");
+        HouseEntity house = house("Greenwood Manor");
+        house.getOwners().add(alice);
+        DeviceEntity device = device(house, "Garage", DeviceTypeEnum.GARAGE_DOOR, null);
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+
+        DeviceModel result = homeQService.addDevice(alice.getId(), house.getId(), device.getId(),
+                "Main garage", DeviceTypeEnum.GARAGE_DOOR, null, DeviceSetupStatusEnum.ACTIVE);
+
+        assertThat(result.getId()).isEqualTo(device.getId());
+        assertThat(house.getDevices()).containsExactly(device);
+        assertThat(device.getName()).isEqualTo("Main garage");
+        assertThat(device.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ACTIVE);
+    }
+
+    @Test
+    void addDevice_withIdUsedInAnotherHouse_throwsConflict() {
+        UserEntity alice = user("Alice");
+        HouseEntity house = house("Greenwood Manor");
+        house.getOwners().add(alice);
+        UUID deviceId = UuidCreator.getTimeOrderedEpoch();
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+        when(houseRepository.existsDeviceById(deviceId)).thenReturn(true);
+
+        assertThatThrownBy(() -> homeQService.addDevice(alice.getId(), house.getId(), deviceId,
+                "Garage", DeviceTypeEnum.GARAGE_DOOR, null, null))
+                .isInstanceOf(DeviceIdConflictException.class);
+        assertThat(house.getDevices()).isEmpty();
+    }
+
+    @Test
+    void addDevice_withIdThatIsNotV7_throwsInvalidDeviceId() {
+        assertThatThrownBy(() -> homeQService.addDevice(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "Garage", DeviceTypeEnum.GARAGE_DOOR, null, null))
+                .isInstanceOf(InvalidDeviceIdException.class);
+        verify(houseRepository, never()).findById(any());
     }
 
     @Test

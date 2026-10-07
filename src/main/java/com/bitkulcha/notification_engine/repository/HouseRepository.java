@@ -17,4 +17,7 @@ public interface HouseRepository  extends JpaRepository<HouseEntity, UUID> {
     @Query("SELECT DISTINCT h FROM HouseEntity h LEFT JOIN h.owners o LEFT JOIN h.residents r "
             + "WHERE o.id = :userId OR r.id = :userId")
     List<HouseEntity> findAllByMember(UUID userId);
+
+    @Query("SELECT COUNT(d) > 0 FROM DeviceEntity d WHERE d.id = :deviceId")
+    boolean existsDeviceById(UUID deviceId);
 }

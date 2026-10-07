@@ -50,7 +50,8 @@ public class HomeQController implements HomeqApi {
     @Override
     public ResponseEntity<DeviceDto> addDevice(UUID houseId, CreateDeviceRequestDto createDeviceRequest) {
         DeviceSetupStatusDto setupStatus = createDeviceRequest.getSetupStatus();
-        DeviceModel device = homeQService.addDevice(currentUserId(), houseId, createDeviceRequest.getName(),
+        DeviceModel device = homeQService.addDevice(currentUserId(), houseId, createDeviceRequest.getId(),
+                createDeviceRequest.getName(),
                 DeviceTypeEnum.valueOf(createDeviceRequest.getType().name()), createDeviceRequest.getStatus(),
                 setupStatus == null ? null : DeviceSetupStatusEnum.valueOf(setupStatus.name()));
         return ResponseEntity.status(HttpStatus.CREATED).body(toDevice(device));

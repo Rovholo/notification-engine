@@ -6,6 +6,7 @@ import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.UserEntity;
+import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,8 +46,8 @@ class HomeQServiceIntegrationTest {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
 
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
-        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
-        homeQService.addDevice(aliceId, house.getId(), "Porch light", DeviceTypeEnum.LIGHT, null, null);
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
+        homeQService.addDevice(aliceId, house.getId(), null, "Porch light", DeviceTypeEnum.LIGHT, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -69,7 +70,7 @@ class HomeQServiceIntegrationTest {
     void updateDevice_persistsSetupStatus() {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
-        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
         entityManager.flush();
         entityManager.clear();
 
@@ -82,6 +83,28 @@ class HomeQServiceIntegrationTest {
         assertThat(loaded.getName()).isEqualTo("Main garage");
         assertThat(loaded.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ACTIVE);
         assertThat(loaded.getStatus()).contains("closed");
+    }
+
+    @Test
+    void addDevice_withId_thenRetryWithSameId_persistsOneDevice() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        UUID deviceId = UuidCreator.getTimeOrderedEpoch();
+        homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
+                DeviceSetupStatusEnum.ACTIVE);
+        entityManager.flush();
+        entityManager.clear();
+
+        homeQService.addDevice(aliceId, house.getId(), deviceId, "Main garage", DeviceTypeEnum.GARAGE_DOOR, null,
+                DeviceSetupStatusEnum.ACTIVE);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(homeQService.getHousesForMember(aliceId).getFirst().getDevices()).singleElement().satisfies(loaded -> {
+            assertThat(loaded.getId()).isEqualTo(deviceId);
+            assertThat(loaded.getName()).isEqualTo("Main garage");
+            assertThat(loaded.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ACTIVE);
+        });
     }
 
     private UserEntity newUser(String name) {
