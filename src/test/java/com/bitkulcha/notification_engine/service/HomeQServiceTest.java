@@ -219,6 +219,68 @@ class HomeQServiceTest {
     }
 
     @Test
+    void activateAddedDevice_whenAdded_marksItActive() {
+        HouseEntity house = house("Greenwood Manor");
+        DeviceEntity device = device(house, "Garage", DeviceTypeEnum.GARAGE_DOOR, null);
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+
+        assertThat(homeQService.activateAddedDevice(house.getId(), device.getId())).isTrue();
+        assertThat(device.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ACTIVE);
+    }
+
+    @Test
+    void activateAddedDevice_whenInactive_leavesItInactive() {
+        HouseEntity house = house("Greenwood Manor");
+        DeviceEntity device = device(house, "Garage", DeviceTypeEnum.GARAGE_DOOR, null);
+        device.setSetupStatus(DeviceSetupStatusEnum.INACTIVE);
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+
+        assertThat(homeQService.activateAddedDevice(house.getId(), device.getId())).isFalse();
+        assertThat(device.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.INACTIVE);
+    }
+
+    @Test
+    void activateAddedDevice_whenAlreadyActive_changesNothing() {
+        HouseEntity house = house("Greenwood Manor");
+        DeviceEntity device = device(house, "Garage", DeviceTypeEnum.GARAGE_DOOR, null);
+        device.setSetupStatus(DeviceSetupStatusEnum.ACTIVE);
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+
+        assertThat(homeQService.activateAddedDevice(house.getId(), device.getId())).isFalse();
+    }
+
+    @Test
+    void activateAddedDevice_whenDeviceIsNotInTheHouse_returnsFalse() {
+        HouseEntity house = house("Greenwood Manor");
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+
+        assertThat(homeQService.activateAddedDevice(house.getId(), UUID.randomUUID())).isFalse();
+    }
+
+    @Test
+    void findHouse_returnsTheHouseWithItsOwnersAndDevices() {
+        UserEntity alice = user("Alice");
+        HouseEntity house = house("Greenwood Manor");
+        house.getOwners().add(alice);
+        device(house, "Garage", DeviceTypeEnum.GARAGE_DOOR, null);
+        when(houseRepository.findById(house.getId())).thenReturn(Optional.of(house));
+
+        assertThat(homeQService.findHouse(house.getId())).hasValueSatisfying(found -> {
+            assertThat(found.getName()).isEqualTo("Greenwood Manor");
+            assertThat(found.getOwners()).extracting(UserModel::getId).containsExactly(alice.getId());
+            assertThat(found.getDevices()).extracting(DeviceModel::getName).containsExactly("Garage");
+        });
+    }
+
+    @Test
+    void findHouse_whenMissing_returnsEmpty() {
+        UUID houseId = UUID.randomUUID();
+        when(houseRepository.findById(houseId)).thenReturn(Optional.empty());
+
+        assertThat(homeQService.findHouse(houseId)).isEmpty();
+    }
+
+    @Test
     void updateDevice_asOwner_updatesNameTypeAndSetupStatus_andKeepsStatus() {
         UserEntity alice = user("Alice");
         HouseEntity house = house("Greenwood Manor");

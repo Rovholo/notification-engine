@@ -102,6 +102,32 @@ public class HomeQService {
         return EntityModelMapper.toModel(device);
     }
 
+    /**
+     * Marks a device ACTIVE once it reports over mqtt, which proves it received its wifi and broker details. Only
+     * ADDED devices change: ACTIVE ones already are, and INACTIVE ones were turned off on purpose.
+     *
+     * @return whether the device was activated
+     */
+    @Transactional
+    public boolean activateAddedDevice(UUID houseId, UUID deviceId) {
+        return houseRepository.findById(houseId)
+                .flatMap(house -> findDevice(house, deviceId))
+                .filter(device -> device.getSetupStatus() == DeviceSetupStatusEnum.ADDED)
+                .map(device -> {
+                    device.setSetupStatus(DeviceSetupStatusEnum.ACTIVE);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * Looks up a house for messages its devices sent, so no member check: the id comes from the device's mqtt topic.
+     */
+    @Transactional(readOnly = true)
+    public Optional<HouseModel> findHouse(UUID houseId) {
+        return houseRepository.findById(houseId).map(EntityModelMapper::toModel);
+    }
+
     private static Optional<DeviceEntity> findDevice(HouseEntity house, UUID deviceId) {
         return house.getDevices().stream().filter(d -> d.getId().equals(deviceId)).findFirst();
     }

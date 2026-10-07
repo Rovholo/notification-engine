@@ -1,10 +1,7 @@
 package com.bitkulcha.notification_engine.service;
 
-import com.google.api.core.ApiFutures;
-import com.google.cloud.firestore.*;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
-import com.bitkulcha.notification_engine.domain.model.firebase.HouseModel;
 import com.bitkulcha.notification_engine.domain.model.NotificationImmtbl;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModel;
 import com.bitkulcha.notification_engine.domain.model.PushMessageModelImmtbl;
@@ -15,9 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -26,51 +21,10 @@ import static org.mockito.Mockito.*;
 class FirebaseServiceTest {
 
     @Mock
-    private Firestore firestore;
-
-    @Mock
     private FirebaseMessaging firebaseMessaging;
 
     @InjectMocks
     private FirebaseService firebaseService;
-
-    @Test
-    void getHouse_mapsFirestoreDocumentToModel() {
-        CollectionReference collection = mock(CollectionReference.class);
-        DocumentReference docRef = mock(DocumentReference.class);
-        DocumentSnapshot snapshot = mock(DocumentSnapshot.class);
-
-        when(firestore.collection("houses")).thenReturn(collection);
-        when(collection.document("house-1")).thenReturn(docRef);
-        when(docRef.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
-        when(docRef.getId()).thenReturn("house-1");
-        when(snapshot.getData()).thenReturn(Map.of(
-                "name", "Greenwood Manor",
-                "owners", List.of("owner-1"),
-                "residents", List.of("resident-1"),
-                "devices", List.of("device-1")));
-
-        HouseModel house = firebaseService.getHouse("house-1");
-
-        assertThat(house.getId()).contains("house-1");
-        assertThat(house.getName()).isEqualTo("Greenwood Manor");
-        assertThat(house.getOwners()).containsExactly("owner-1");
-        assertThat(house.getResidents()).containsExactly("resident-1");
-    }
-
-    @Test
-    void getHouse_whenFirestoreFails_returnsNull() {
-        CollectionReference collection = mock(CollectionReference.class);
-        DocumentReference docRef = mock(DocumentReference.class);
-
-        when(firestore.collection("houses")).thenReturn(collection);
-        when(collection.document("house-1")).thenReturn(docRef);
-        when(docRef.get()).thenReturn(ApiFutures.immediateFailedFuture(new RuntimeException("offline")));
-
-        HouseModel house = firebaseService.getHouse("house-1");
-
-        assertThat(house).isNull();
-    }
 
     @Test
     void sendMessage_single_sendsPushNotification() throws Exception {

@@ -3,7 +3,7 @@ package com.bitkulcha.notification_engine.config;
 import com.bitkulcha.notification_engine.domain.model.BrokerModel;
 import com.bitkulcha.notification_engine.exception.BrokerNotFoundException;
 import com.bitkulcha.notification_engine.service.BrokerService;
-import com.bitkulcha.notification_engine.service.FirebaseService;
+import com.bitkulcha.notification_engine.service.DeviceMessageService;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.context.annotation.Bean;
@@ -30,13 +30,13 @@ public class MqttConfig {
     private static final String CLIENT_ID_PUB = "springBootPubClient";
 
     private final Environment environment;
-    private final FirebaseService firebaseService;
     private final BrokerService brokerService;
+    private final DeviceMessageService deviceMessageService;
 
-    public MqttConfig(Environment environment, FirebaseService firebaseService, BrokerService brokerService) {
+    public MqttConfig(Environment environment, BrokerService brokerService, DeviceMessageService deviceMessageService) {
         this.environment = environment;
-        this.firebaseService = firebaseService;
         this.brokerService = brokerService;
+        this.deviceMessageService = deviceMessageService;
     }
 
     @Bean
@@ -76,7 +76,7 @@ public class MqttConfig {
     @Bean
     @ServiceActivator(inputChannel = "mqttInboundChannel")
     public MessageHandler inboundHandler() {
-        return message -> firebaseService.handleMessage(
+        return message -> deviceMessageService.handleMessage(
                 (String) message.getHeaders().get("mqtt_receivedTopic"),
                 message.getPayload());
     }
