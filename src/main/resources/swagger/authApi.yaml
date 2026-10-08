@@ -88,6 +88,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CurrentUserResponse'
+    put:
+      summary: Update the currently authenticated user's name, surname and cell. The email can't be changed.
+      operationId: updateCurrentUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
 
   /auth/password-reset/request:
     post:
@@ -144,6 +162,22 @@ components:
           type: string
         email:
           type: string
+        cell:
+          type: string
+
+    UpdateUserRequest:
+      type: object
+      required:
+        - name
+        - surname
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 65
+        surname:
+          type: string
+          minLength: 1
         cell:
           type: string
 

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.immutables.value.Value;
 
+import java.util.Optional;
+
 @Value.Immutable
 @JsonDeserialize(as = PushMessageModelImmtbl.class)
 @JsonSerialize(as = PushMessageModelImmtbl.class)
@@ -16,6 +18,11 @@ public interface PushMessageModel {
     default String getBody() {
         return "";
     }
+
+    /**
+     * Notifications with the same key replace each other on the phone. Without one, each shows separately.
+     */
+    Optional<String> getCollapseKey();
 
     @Value.Immutable
     @JsonDeserialize(as = NotificationImmtbl.class)

@@ -54,7 +54,7 @@ class DeviceMessageServiceTest {
         deviceMessageService.handleMessage(reactionTopic, "{\"index\":0,\"status\":\"closed\",\"mode\":\"start\"}");
 
         verify(homeQService).activateAddedDevice(houseId, deviceId);
-        verifyPushed("Your Gate is online");
+        verifyPushed("Your Gate is online", deviceId + "-connection");
     }
 
     @Test
@@ -64,7 +64,7 @@ class DeviceMessageServiceTest {
         deviceMessageService.handleMessage(reactionTopic,
                 "{\"index\":0,\"status\":\"open\",\"prevStatus\":\"closed\"}");
 
-        verifyPushed("Your Gate is open");
+        verifyPushed("Your Gate is open", deviceId + "-status");
         verify(homeQService, never()).activateAddedDevice(any(), any());
     }
 
@@ -82,7 +82,7 @@ class DeviceMessageServiceTest {
 
         deviceMessageService.handleMessage(willTopic, "{\"status\":\"offline\"}");
 
-        verifyPushed("Your Gate is offline");
+        verifyPushed("Your Gate is offline", deviceId + "-connection");
     }
 
     @Test
@@ -91,7 +91,7 @@ class DeviceMessageServiceTest {
 
         deviceMessageService.handleMessage(willTopic, "{\"status\":\"online\"}");
 
-        verifyPushed("Your Gate is online");
+        verifyPushed("Your Gate is online", deviceId + "-connection");
         verify(homeQService, never()).activateAddedDevice(any(), any());
     }
 
@@ -153,10 +153,11 @@ class DeviceMessageServiceTest {
                 .build();
     }
 
-    private void verifyPushed(String body) {
+    private void verifyPushed(String body, String collapseKey) {
         ArgumentCaptor<PushMessageModel> push = ArgumentCaptor.forClass(PushMessageModel.class);
         verify(firebaseService).sendMessage(eq(List.of(ownerId.toString())), push.capture());
         assertThat(push.getValue().getNotification().getTitle()).isEqualTo("Greenwood Manor");
         assertThat(push.getValue().getNotification().getBody()).isEqualTo(body);
+        assertThat(push.getValue().getCollapseKey()).contains(collapseKey);
     }
 }

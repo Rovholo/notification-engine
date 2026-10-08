@@ -14,6 +14,7 @@ import com.bitkulcha.notification_engine.model.PasswordResetConfirmRequestDto;
 import com.bitkulcha.notification_engine.model.PasswordResetRequestDto;
 import com.bitkulcha.notification_engine.model.RefreshRequestDto;
 import com.bitkulcha.notification_engine.model.RegisterRequestDto;
+import com.bitkulcha.notification_engine.model.UpdateUserRequestDto;
 import com.bitkulcha.notification_engine.service.AuthService;
 import com.bitkulcha.notification_engine.service.PasswordResetService;
 import org.junit.jupiter.api.AfterEach;
@@ -127,6 +128,31 @@ class AuthControllerTest {
         assertThat(response.getBody().getSurname()).isEqualTo("Smith");
         assertThat(response.getBody().getEmail()).isEqualTo("alice@example.com");
         assertThat(response.getBody().getCell()).isEqualTo("0821234567");
+    }
+
+    @Test
+    void updateCurrentUser_updatesTheUserFromSecurityContextWithTrimmedDetails() {
+        UUID userId = UUID.randomUUID();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userId, null, List.of()));
+        UpdateUserRequestDto request = new UpdateUserRequestDto(" Bob ", "Jones ");
+        request.setCell("  ");
+        when(authService.updateCurrentUser(userId, "Bob", "Jones", null))
+                .thenReturn(AccountModelImmtbl.builder()
+                        .username("alice")
+                        .user(UserModelImmtbl.builder()
+                                .id(userId)
+                                .name("Bob")
+                                .surname("Jones")
+                                .email("alice@example.com")
+                                .build())
+                        .build());
+
+        ResponseEntity<CurrentUserResponseDto> response = authController.updateCurrentUser(request);
+
+        assertThat(response.getBody().getName()).isEqualTo("Bob");
+        assertThat(response.getBody().getEmail()).isEqualTo("alice@example.com");
+        assertThat(response.getBody().getUsername()).isEqualTo("alice");
     }
 
     @Test

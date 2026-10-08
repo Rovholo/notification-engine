@@ -163,6 +163,22 @@ public class AuthService {
                 .orElseThrow(() -> new InvalidCredentialsException("User no longer exists"));
     }
 
+    /**
+     * Saves the name, surname and cell of the user. The email is where password reset codes go, so it can't be
+     * changed without verifying it, and the username and password are changed elsewhere.
+     */
+    @Transactional
+    public AccountModel updateCurrentUser(UUID userId, String name, String surname, String cell) {
+        CredentialEntity credential = credentialRepository.findByUserId(userId)
+                .orElseThrow(() -> new InvalidCredentialsException("User no longer exists"));
+        UserEntity user = credential.getUser();
+        user.setName(name);
+        user.setSurname(surname);
+        user.setCell(cell);
+        userRepository.save(user);
+        return EntityModelMapper.toModel(credential);
+    }
+
     private boolean passwordMatches(CredentialEntity credential, String password) {
         if (!credential.getPassword().isEmpty()) {
             return passwordEncoder.matches(password, credential.getPassword());

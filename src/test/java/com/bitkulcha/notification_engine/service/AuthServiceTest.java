@@ -479,4 +479,49 @@ class AuthServiceTest {
         assertThat(account.getUser().getEmail()).isEqualTo("alice@example.com");
         assertThat(account.getUser().getCell()).contains("0821234567");
     }
+
+    @Test
+    void updateCurrentUser_savesTheNewDetailsButNotTheEmail() {
+        UserEntity user = user();
+        when(credentialRepository.findByUserId(user.getId())).thenReturn(Optional.of(credential(user)));
+
+        AccountModel account = authService.updateCurrentUser(user.getId(), "Bob", "Jones", null);
+
+        verify(userRepository).save(user);
+        assertThat(user.getName()).isEqualTo("Bob");
+        assertThat(user.getSurname()).isEqualTo("Jones");
+        assertThat(user.getCell()).isNull();
+        assertThat(user.getEmail()).isEqualTo("alice@example.com");
+        assertThat(account.getUser().getName()).isEqualTo("Bob");
+        assertThat(account.getUsername()).isEqualTo("alice");
+    }
+
+    @Test
+    void updateCurrentUser_withCell_savesIt() {
+        UserEntity user = user();
+        when(credentialRepository.findByUserId(user.getId())).thenReturn(Optional.of(credential(user)));
+
+        authService.updateCurrentUser(user.getId(), "Alice", "Smith", "0831112222");
+
+        assertThat(user.getCell()).isEqualTo("0831112222");
+    }
+
+    @Test
+    void updateCurrentUser_whenUserIsGone_throwsInvalidCredentials() {
+        UUID userId = UUID.randomUUID();
+        when(credentialRepository.findByUserId(userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.updateCurrentUser(userId, "Bob", "Jones", null))
+                .isInstanceOf(InvalidCredentialsException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    private static UserEntity user() {
+        UserEntity user = new UserEntity();
+        user.setName("Alice");
+        user.setSurname("Smith");
+        user.setEmail("alice@example.com");
+        user.setCell("0821234567");
+        return user;
+    }
 }

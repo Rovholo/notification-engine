@@ -13,6 +13,7 @@ import com.bitkulcha.notification_engine.model.PasswordResetConfirmRequestDto;
 import com.bitkulcha.notification_engine.model.PasswordResetRequestDto;
 import com.bitkulcha.notification_engine.model.RefreshRequestDto;
 import com.bitkulcha.notification_engine.model.RegisterRequestDto;
+import com.bitkulcha.notification_engine.model.UpdateUserRequestDto;
 import com.bitkulcha.notification_engine.service.AuthService;
 import com.bitkulcha.notification_engine.service.PasswordResetService;
 import org.springframework.http.ResponseEntity;
@@ -64,9 +65,18 @@ public class AuthController implements AuthApi {
 
     @Override
     public ResponseEntity<CurrentUserResponseDto> getCurrentUser() {
-        // JwtAuthenticationFilter sets the user id as the principal.
-        UUID userId = (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return ResponseEntity.ok(toCurrentUserResponse(authService.getCurrentUser(userId)));
+        return ResponseEntity.ok(toCurrentUserResponse(authService.getCurrentUser(currentUserId())));
+    }
+
+    @Override
+    public ResponseEntity<CurrentUserResponseDto> updateCurrentUser(UpdateUserRequestDto request) {
+        AccountModel account = authService.updateCurrentUser(
+                currentUserId(),
+                request.getName().trim(),
+                request.getSurname().trim(),
+                // A blank cell clears it.
+                Optional.ofNullable(request.getCell()).map(String::trim).filter(cell -> !cell.isEmpty()).orElse(null));
+        return ResponseEntity.ok(toCurrentUserResponse(account));
     }
 
     @Override
@@ -79,6 +89,10 @@ public class AuthController implements AuthApi {
     public ResponseEntity<Void> confirmPasswordReset(PasswordResetConfirmRequestDto request) {
         passwordResetService.confirmReset(request.getEmail(), request.getCode(), request.getNewPassword());
         return ResponseEntity.noContent().build();
+    }
+
+    private static UUID currentUserId() {
+        return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
     private static AuthResponseDto toResponse(AuthTokensModel tokens) {
