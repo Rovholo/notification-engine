@@ -17,6 +17,7 @@ import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory;
 import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.outbound.MqttPahoMessageHandler;
+import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
 
@@ -76,9 +77,13 @@ public class MqttConfig {
     @Bean
     @ServiceActivator(inputChannel = "mqttInboundChannel")
     public MessageHandler inboundHandler() {
-        return message -> deviceMessageService.handleMessage(
-                (String) message.getHeaders().get("mqtt_receivedTopic"),
-                message.getPayload());
+        return message -> {
+            // Retained messages are replayed on every (re)subscribe, so only live ones are new events.
+            if (Boolean.TRUE.equals(message.getHeaders().get(MqttHeaders.RECEIVED_RETAINED))) return;
+            deviceMessageService.handleMessage(
+                    (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC),
+                    message.getPayload());
+        };
     }
 
     @Bean

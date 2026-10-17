@@ -36,7 +36,7 @@ class DeviceMessageServiceTest {
     private final UUID deviceId = UuidCreator.getTimeOrderedEpoch();
     private final UUID ownerId = UuidCreator.getTimeOrderedEpoch();
     private final String reactionTopic = "home/" + houseId + "/reaction/" + deviceId;
-    private final String willTopic = "home/" + houseId + "/will/" + deviceId;
+    private final String stateTopic = "home/" + houseId + "/state/" + deviceId;
 
     @Mock
     private FirebaseService firebaseService;
@@ -48,10 +48,10 @@ class DeviceMessageServiceTest {
     private DeviceMessageService deviceMessageService;
 
     @Test
-    void handleMessage_startReaction_activatesTheDeviceAndNotifiesItIsOnline() {
+    void handleMessage_connectState_activatesTheDeviceAndNotifiesItIsOnline() {
         givenDeviceNamed("Gate");
 
-        deviceMessageService.handleMessage(reactionTopic, "{\"index\":0,\"status\":\"closed\",\"mode\":\"start\"}");
+        deviceMessageService.handleMessage(stateTopic, "{\"index\":0,\"status\":\"closed\",\"mode\":\"connect\"}");
 
         verify(homeQService).activateAddedDevice(houseId, deviceId);
         verifyPushed("Your Gate is online", deviceId + "-connection");
@@ -61,7 +61,7 @@ class DeviceMessageServiceTest {
     void handleMessage_statusChange_notifiesTheOwnersWithTheNameFromTheDatabase() {
         givenDeviceNamed("Gate");
 
-        deviceMessageService.handleMessage(reactionTopic,
+        deviceMessageService.handleMessage(stateTopic,
                 "{\"index\":0,\"status\":\"open\",\"prevStatus\":\"closed\"}");
 
         verifyPushed("Your Gate is open", deviceId + "-status");
@@ -69,39 +69,30 @@ class DeviceMessageServiceTest {
     }
 
     @Test
-    void handleMessage_statusWithoutPrevStatus_isIgnored() {
-        deviceMessageService.handleMessage(reactionTopic, "{\"index\":0,\"status\":\"closed\",\"old\":\"open\"}");
+    void handleMessage_stateWithoutPrevStatus_isIgnored() {
+        deviceMessageService.handleMessage(stateTopic, "{\"index\":0,\"status\":\"closed\",\"old\":\"open\"}");
 
         verify(firebaseService, never()).sendMessage(anyList(), any());
         verify(homeQService, never()).activateAddedDevice(any(), any());
     }
 
     @Test
-    void handleMessage_will_notifiesTheOwnersTheDeviceIsOffline() {
+    void handleMessage_reaction_isIgnored() {
+        // Reactions are replies to the app's actions, so only the app reads them.
+        deviceMessageService.handleMessage(reactionTopic,
+                "{\"id\":\"0\",\"index\":0,\"status\":\"open\",\"prevStatus\":\"closed\",\"mode\":\"connect\"}");
+
+        verify(homeQService, never()).activateAddedDevice(any(), any());
+        verify(firebaseService, never()).sendMessage(anyList(), any());
+    }
+
+    @Test
+    void handleMessage_offlineState_notifiesTheOwnersTheDeviceIsOffline() {
         givenDeviceNamed("Gate");
 
-        deviceMessageService.handleMessage(willTopic, "{\"status\":\"offline\"}");
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"offline\"}");
 
         verifyPushed("Your Gate is offline", deviceId + "-connection");
-    }
-
-    @Test
-    void handleMessage_onlineOnWill_notifiesTheOwnersTheDeviceIsOnline() {
-        givenDeviceNamed("Gate");
-
-        deviceMessageService.handleMessage(willTopic, "{\"status\":\"online\"}");
-
-        verifyPushed("Your Gate is online", deviceId + "-connection");
-        verify(homeQService, never()).activateAddedDevice(any(), any());
-    }
-
-    @Test
-    void handleMessage_unknownDevice_doesNotNotify() {
-        when(homeQService.findHouse(houseId)).thenReturn(Optional.of(house(List.of())));
-
-        deviceMessageService.handleMessage(willTopic, "{\"status\":\"offline\"}");
-
-        verify(firebaseService, never()).sendMessage(anyList(), any());
     }
 
     @Test
@@ -109,16 +100,25 @@ class DeviceMessageServiceTest {
         givenDeviceNamed("Gate");
         doThrow(new RuntimeException("firebase down")).when(firebaseService).sendMessage(anyList(), any());
 
-        deviceMessageService.handleMessage(reactionTopic, "{\"status\":\"closed\",\"mode\":\"start\"}");
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"closed\",\"mode\":\"connect\"}");
 
         verify(homeQService).activateAddedDevice(houseId, deviceId);
+    }
+
+    @Test
+    void handleMessage_unknownDevice_doesNotNotify() {
+        when(homeQService.findHouse(houseId)).thenReturn(Optional.of(house(List.of())));
+
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"offline\"}");
+
+        verify(firebaseService, never()).sendMessage(anyList(), any());
     }
 
     @Test
     void handleMessage_actionTopic_isIgnored() {
         // Actions are what the app sends, so only the device's own messages count.
         deviceMessageService.handleMessage("home/" + houseId + "/action/" + deviceId,
-                "{\"mode\":\"start\",\"prevStatus\":\"open\"}");
+                "{\"mode\":\"connect\",\"prevStatus\":\"open\"}");
 
         verify(homeQService, never()).activateAddedDevice(any(), any());
         verify(firebaseService, never()).sendMessage(anyList(), any());
@@ -126,10 +126,10 @@ class DeviceMessageServiceTest {
 
     @Test
     void handleMessage_badTopicOrPayload_isIgnored() {
-        deviceMessageService.handleMessage("home/not-a-uuid/reaction/" + deviceId, "{\"mode\":\"start\"}");
-        deviceMessageService.handleMessage(reactionTopic, "not json");
-        deviceMessageService.handleMessage("topic/test", "{\"mode\":\"start\"}");
-        deviceMessageService.handleMessage(null, "{\"mode\":\"start\"}");
+        deviceMessageService.handleMessage("home/not-a-uuid/state/" + deviceId, "{\"mode\":\"connect\"}");
+        deviceMessageService.handleMessage(stateTopic, "not json");
+        deviceMessageService.handleMessage("topic/test", "{\"mode\":\"connect\"}");
+        deviceMessageService.handleMessage(null, "{\"mode\":\"connect\"}");
 
         verify(homeQService, never()).activateAddedDevice(any(), any());
         verify(firebaseService, never()).sendMessage(anyList(), any());

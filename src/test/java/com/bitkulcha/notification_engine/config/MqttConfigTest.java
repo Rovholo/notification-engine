@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.env.Environment;
 import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory;
+import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,13 +69,25 @@ class MqttConfigTest {
 
     @Test
     void inboundHandler_passesMessagesToDeviceMessageService() {
-        Message<String> message = MessageBuilder.withPayload("{\"mode\":\"start\"}")
-                .setHeader("mqtt_receivedTopic", "home/h/reaction/d")
+        Message<String> message = MessageBuilder.withPayload("{\"mode\":\"connect\"}")
+                .setHeader("mqtt_receivedTopic", "home/h/state/d")
                 .build();
 
         mqttConfig.inboundHandler().handleMessage(message);
 
-        verify(deviceMessageService).handleMessage("home/h/reaction/d", "{\"mode\":\"start\"}");
+        verify(deviceMessageService).handleMessage("home/h/state/d", "{\"mode\":\"connect\"}");
+    }
+
+    @Test
+    void inboundHandler_ignoresRetainedMessages() {
+        Message<String> message = MessageBuilder.withPayload("{\"status\":\"offline\"}")
+                .setHeader(MqttHeaders.RECEIVED_TOPIC, "home/h/state/d")
+                .setHeader(MqttHeaders.RECEIVED_RETAINED, true)
+                .build();
+
+        mqttConfig.inboundHandler().handleMessage(message);
+
+        verifyNoInteractions(deviceMessageService);
     }
 
     private MqttConnectOptions connectionOptions() {

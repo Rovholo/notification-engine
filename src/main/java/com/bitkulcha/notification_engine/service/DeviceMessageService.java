@@ -14,18 +14,19 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Handles every message received over mqtt, and calls the services that act on it. Devices publish on
- * {@code home/<houseId>/reaction/<deviceId>}:
+ * Handles every message received over mqtt, and calls the services that act on it. Devices keep their latest state
+ * retained on {@code home/<houseId>/state/<deviceId>}, so the app gets it as soon as it subscribes; retained messages
+ * are dropped before they reach this service. A state message is one of:
  * <ul>
- *     <li>a status change carries the previous status in {@code "prevStatus"}, and the house owners get a push
- *     notification;</li>
- *     <li>{@code "mode": "start"} is sent each time the device boots with its details, so a device that is still
- *     ADDED (e.g. the app lost its access point before the device replied) is marked ACTIVE, and the house owners
- *     are told it is online.</li>
+ *     <li>{@code "status": "offline"}, the device's last will, which the broker publishes when it drops off without
+ *     disconnecting, and the house owners are told it is offline;</li>
+ *     <li>{@code "mode": "connect"}, sent each time the device connects, so a device that is still ADDED (e.g. the app
+ *     lost its access point before the device replied) is marked ACTIVE, and the house owners are told it is
+ *     online;</li>
+ *     <li>a status change, which carries the previous status in {@code "prevStatus"}, and the house owners get a push
+ *     notification.</li>
  * </ul>
- * The broker publishes a device's last will, {@code "status": "offline"}, on {@code home/<houseId>/will/<deviceId>}
- * when it drops off without disconnecting. The device publishes {@code "status": "online"} there when it reconnects
- * without rebooting. The house owners are told either way.
+ * Replies to the app's actions go on {@code home/<houseId>/reaction/<deviceId>}, and are only for the app.
  * <p>
  * Each device has two notifications on the phone: its status (e.g. open) and its connection (online or offline). A
  * new one replaces only the old one of its kind, so going offline never hides that the device was left open.
@@ -36,6 +37,7 @@ public class DeviceMessageService {
 
     static final String ONLINE = "online";
     static final String OFFLINE = "offline";
+    static final String CONNECT = "connect";
     static final String STATUS_KEY = "status";
     static final String CONNECTION_KEY = "connection";
 
@@ -65,18 +67,17 @@ public class DeviceMessageService {
             return;
         }
         switch (tokens[2]) {
-            case "reaction" -> {
+            case "state" -> {
                 // Each step catches its own errors, so a failed notification never stops a device being activated.
-                if (message.get("prevStatus") != null) {
+                if (OFFLINE.equals(message.get("status"))) {
+                    notify(houseId, deviceId, OFFLINE, CONNECTION_KEY);
+                } else if (CONNECT.equals(message.get("mode"))) {
+                    activateConnectedDevice(houseId, deviceId);
+                    notify(houseId, deviceId, ONLINE, CONNECTION_KEY);
+                } else if (message.get("prevStatus") != null) {
                     notify(houseId, deviceId, (String) message.get("status"), STATUS_KEY);
                 }
-                if ("start".equals(message.get("mode"))) {
-                    activateStartedDevice(houseId, deviceId);
-                    notify(houseId, deviceId, ONLINE, CONNECTION_KEY);
-                }
             }
-            case "will" -> notify(houseId, deviceId,
-                    ONLINE.equals(message.get("status")) ? ONLINE : OFFLINE, CONNECTION_KEY);
             default -> { }
         }
     }
@@ -110,10 +111,10 @@ public class DeviceMessageService {
         }
     }
 
-    private void activateStartedDevice(UUID houseId, UUID deviceId) {
+    private void activateConnectedDevice(UUID houseId, UUID deviceId) {
         try {
             if (homeQService.activateAddedDevice(houseId, deviceId)) {
-                log.info("Activated device {} in house {} after it started", deviceId, houseId);
+                log.info("Activated device {} in house {} after it connected", deviceId, houseId);
             }
         } catch (Exception e) {
             log.error("Error activating device {} in house {}", deviceId, houseId, e);
