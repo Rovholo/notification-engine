@@ -76,7 +76,6 @@ public class PasswordResetService {
         emailService.sendPasswordResetCode(user.get().getEmail(), code, CODE_VALIDITY);
     }
 
-    // Failed attempts must be committed even though the reset fails.
     @Transactional(noRollbackFor = InvalidResetCodeException.class)
     public void confirmReset(String email, String code, String newPassword) {
         UserEntity user = userRepository.findByEmail(email).orElseThrow(PasswordResetService::invalidCode);
@@ -104,7 +103,6 @@ public class PasswordResetService {
         credential.setLockedUntil(null);
         credentialRepository.save(credential);
 
-        // Log out every device that was using the old password.
         refreshTokenService.revokeAll(user.getId());
     }
 

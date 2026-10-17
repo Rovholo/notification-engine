@@ -98,7 +98,6 @@ public class AuthService {
         return issueTokens(credential);
     }
 
-    // Failed-attempt counts must be committed even though the login fails.
     @Transactional(noRollbackFor = InvalidCredentialsException.class)
     public AuthTokensModel login(String username, String password) {
         CredentialEntity credential = credentialRepository.findByUsername(username)
@@ -130,7 +129,6 @@ public class AuthService {
         return issueTokens(credential);
     }
 
-    // Revoking every session on token reuse must be committed even though the refresh fails.
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public AuthTokensModel refresh(String refreshToken) {
         RefreshTokenEntity existing = refreshTokenService.find(refreshToken)
@@ -163,10 +161,6 @@ public class AuthService {
                 .orElseThrow(() -> new InvalidCredentialsException("User no longer exists"));
     }
 
-    /**
-     * Saves the name, surname and cell of the user. The email is where password reset codes go, so it can't be
-     * changed without verifying it, and the username and password are changed elsewhere.
-     */
     @Transactional
     public AccountModel updateCurrentUser(UUID userId, String name, String surname, String cell) {
         CredentialEntity credential = credentialRepository.findByUserId(userId)

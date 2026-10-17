@@ -7,6 +7,7 @@ import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
 import com.bitkulcha.notification_engine.domain.model.UserModel;
+import com.bitkulcha.notification_engine.model.ClaimDeviceSecretRequestDto;
 import com.bitkulcha.notification_engine.model.CreateDeviceRequestDto;
 import com.bitkulcha.notification_engine.model.CreateHouseRequestDto;
 import com.bitkulcha.notification_engine.model.DeviceDto;
@@ -53,7 +54,8 @@ public class HomeQController implements HomeqApi {
         DeviceModel device = homeQService.addDevice(currentUserId(), houseId, createDeviceRequest.getId(),
                 createDeviceRequest.getName(),
                 DeviceTypeEnum.valueOf(createDeviceRequest.getType().name()), createDeviceRequest.getStatus(),
-                setupStatus == null ? null : DeviceSetupStatusEnum.valueOf(setupStatus.name()));
+                setupStatus == null ? null : DeviceSetupStatusEnum.valueOf(setupStatus.name()),
+                createDeviceRequest.getSecret());
         return ResponseEntity.status(HttpStatus.CREATED).body(toDevice(device));
     }
 
@@ -65,7 +67,14 @@ public class HomeQController implements HomeqApi {
         return ResponseEntity.ok(toDevice(device));
     }
 
-    // JwtAuthenticationFilter sets the user id as the principal.
+    @Override
+    public ResponseEntity<DeviceDto> claimDeviceSecret(UUID houseId, UUID deviceId,
+                                                       ClaimDeviceSecretRequestDto claimDeviceSecretRequest) {
+        DeviceModel device = homeQService.claimDeviceSecret(currentUserId(), houseId, deviceId,
+                claimDeviceSecretRequest.getSecret());
+        return ResponseEntity.ok(toDevice(device));
+    }
+
     private static UUID currentUserId() {
         return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
@@ -86,6 +95,7 @@ public class HomeQController implements HomeqApi {
     private static DeviceDto toDevice(DeviceModel device) {
         return new DeviceDto(device.getId().toString(), device.getName(), DeviceTypeDto.fromValue(device.getType().name()),
                 DeviceSetupStatusDto.fromValue(device.getSetupStatus().name()))
-                .status(device.getStatus().orElse(null));
+                .status(device.getStatus().orElse(null))
+                .secret(device.getSecret().orElse(null));
     }
 }

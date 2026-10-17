@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
-// The Admin SDK cannot check passwords, so this uses the Identity Toolkit REST API that the Firebase client SDKs use.
 @Slf4j
 @Component
 public class FirebaseRestPasswordVerifier implements FirebasePasswordVerifier {

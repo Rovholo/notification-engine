@@ -52,11 +52,6 @@ public class FirebaseService {
         }
     }
 
-    /**
-     * The collapse key is the Android tag and the iOS collapse id, so the phone replaces a shown notification with the
-     * same key even when the app is closed. On Android the app shows notifications itself while it is open, so it gets
-     * the key as {@code collapseKey} and uses it as the tag too.
-     */
     private Message toMessage(String topic, PushMessageModel pushMessage) {
         PushMessageModel.Notification notification = pushMessage.getNotification();
         Message.Builder message = Message.builder()

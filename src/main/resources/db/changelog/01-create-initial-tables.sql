@@ -157,3 +157,8 @@ CREATE TABLE user_role (
 ALTER TABLE devices ADD COLUMN setup_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
 
 --rollback ALTER TABLE devices DROP COLUMN setup_status;
+
+--changeset brendan:010-add-device-secret
+ALTER TABLE devices ADD COLUMN secret VARCHAR(64);
+
+--rollback ALTER TABLE devices DROP COLUMN secret;

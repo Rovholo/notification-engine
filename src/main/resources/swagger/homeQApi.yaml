@@ -117,6 +117,48 @@ paths:
         '404':
           description: No such house or device, or the user is not a member of the house
 
+  /homeq/houses/{houseId}/devices/{deviceId}/secret:
+    post:
+      summary: Give a device that has no secret yet one, or get the one it already has
+      description: >
+        For devices set up before they had a secret, so the app can send one to the device on the local network.
+        Every owner's app gets the same secret, whichever asked first.
+      operationId: claimDeviceSecret
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimDeviceSecretRequest'
+      responses:
+        '200':
+          description: The device, with the secret it has now
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '400':
+          description: Invalid request body, house id or device id
+        '403':
+          description: The user lives in the house but is not an owner
+        '404':
+          description: No such house or device, or the user is not a member of the house
+
 
 components:
   securitySchemes:
@@ -194,6 +236,10 @@ components:
           example: "closed"
         setupStatus:
           $ref: '#/components/schemas/DeviceSetupStatus'
+        secret:
+          type: string
+          description: >
+            The key the app signs local network requests to the device with. Only house members get it.
 
     DeviceType:
       type: string
@@ -246,6 +292,22 @@ components:
           example: "closed"
         setupStatus:
           $ref: '#/components/schemas/DeviceSetupStatus'
+        secret:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: >
+            The key the app gave the device during setup, as 64 hex characters, so members can sign local network
+            requests to it. Leaving it out keeps the current one.
+
+    ClaimDeviceSecretRequest:
+      type: object
+      required:
+        - secret
+      properties:
+        secret:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: The secret to give the device, as 64 hex characters, if it has none yet.
 
     UpdateDeviceRequest:
       type: object

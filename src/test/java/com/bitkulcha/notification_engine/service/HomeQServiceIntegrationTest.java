@@ -20,7 +20,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Runs the house and device flows against a real database, which mocked repositories can't catch persistence bugs in.
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = {
@@ -46,8 +45,8 @@ class HomeQServiceIntegrationTest {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
 
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
-        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
-        homeQService.addDevice(aliceId, house.getId(), null, "Porch light", DeviceTypeEnum.LIGHT, null, null);
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null, null);
+        homeQService.addDevice(aliceId, house.getId(), null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -70,7 +69,7 @@ class HomeQServiceIntegrationTest {
     void updateDevice_persistsSetupStatus() {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
-        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null);
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -91,12 +90,12 @@ class HomeQServiceIntegrationTest {
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
         UUID deviceId = UuidCreator.getTimeOrderedEpoch();
         homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE);
+                DeviceSetupStatusEnum.ACTIVE, null);
         entityManager.flush();
         entityManager.clear();
 
         homeQService.addDevice(aliceId, house.getId(), deviceId, "Main garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE);
+                DeviceSetupStatusEnum.ACTIVE, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -105,6 +104,45 @@ class HomeQServiceIntegrationTest {
             assertThat(loaded.getName()).isEqualTo("Main garage");
             assertThat(loaded.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ACTIVE);
         });
+    }
+
+    @Test
+    void addDevice_retryWithoutSecret_keepsTheSecretTheDeviceWasSetUpWith() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        UUID deviceId = UuidCreator.getTimeOrderedEpoch();
+        String secret = "a".repeat(64);
+        homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
+                DeviceSetupStatusEnum.ACTIVE, secret);
+        entityManager.flush();
+        entityManager.clear();
+
+        homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
+                DeviceSetupStatusEnum.ACTIVE, null);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(homeQService.getHousesForMember(aliceId).getFirst().getDevices()).singleElement()
+                .satisfies(loaded -> assertThat(loaded.getSecret()).contains(secret));
+    }
+
+    @Test
+    void claimDeviceSecret_setsTheFirstSecretAndKeepsItForLaterClaims() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        UUID deviceId = UuidCreator.getTimeOrderedEpoch();
+        homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
+                DeviceSetupStatusEnum.ACTIVE, null);
+        entityManager.flush();
+        entityManager.clear();
+
+        DeviceModel first = homeQService.claimDeviceSecret(aliceId, house.getId(), deviceId, "c".repeat(64));
+        entityManager.flush();
+        entityManager.clear();
+        DeviceModel second = homeQService.claimDeviceSecret(aliceId, house.getId(), deviceId, "d".repeat(64));
+
+        assertThat(first.getSecret()).contains("c".repeat(64));
+        assertThat(second.getSecret()).contains("c".repeat(64));
     }
 
     private UserEntity newUser(String name) {

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
-// Local development has no SMTP server, so emails are written to the log instead.
 @Slf4j
 @Service
 @Profile("local")

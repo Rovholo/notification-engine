@@ -14,4 +14,5 @@ public interface DeviceModel {
     DeviceTypeEnum getType();
     Optional<String> getStatus();
     DeviceSetupStatusEnum getSetupStatus();
+    Optional<String> getSecret();
 }

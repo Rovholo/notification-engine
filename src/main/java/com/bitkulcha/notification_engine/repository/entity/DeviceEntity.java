@@ -52,6 +52,9 @@ public class DeviceEntity {
     @Column(name = "setup_status", nullable = false, length = 20)
     private DeviceSetupStatusEnum setupStatus = DeviceSetupStatusEnum.ADDED;
 
+    @Column(length = 64)
+    private String secret;
+
     @LastModifiedBy
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "updated_by", length = 36)

@@ -33,7 +33,6 @@ public class BrokerService {
                 .orElseThrow(() -> new BrokerNotFoundException("No such broker"));
     }
 
-    // Names are not unique; when several brokers share one, the oldest wins.
     @Transactional(readOnly = true)
     public BrokerModel getBrokerByName(String name) {
         List<BrokerEntity> brokers = brokerRepository.findByNameOrderByIdAsc(name);

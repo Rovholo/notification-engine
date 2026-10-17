@@ -19,9 +19,6 @@ public interface PushMessageModel {
         return "";
     }
 
-    /**
-     * Notifications with the same key replace each other on the phone. Without one, each shows separately.
-     */
     Optional<String> getCollapseKey();
 
     @Value.Immutable

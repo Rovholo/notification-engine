@@ -68,7 +68,6 @@ public class MqttConfig {
         return factory;
     }
 
-    /// Incoming config
     @Bean(name = "mqttInboundChannel")
     public MessageChannel mqttInboundChannel() {
         return new DirectChannel();
@@ -95,7 +94,6 @@ public class MqttConfig {
         return adapter;
     }
 
-    /// Outgoing config
     @Bean
     public MessageChannel mqttOutboundChannel() {
         return new DirectChannel();

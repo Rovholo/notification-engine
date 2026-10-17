@@ -33,7 +33,6 @@ public class RefreshTokenService {
         this.expiration = Duration.ofDays(expirationDays);
     }
 
-    // Returns the raw token for the client; only its hash is stored.
     public String issue(UserEntity user) {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);

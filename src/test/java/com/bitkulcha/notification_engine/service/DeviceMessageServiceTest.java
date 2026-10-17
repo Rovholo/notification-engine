@@ -77,13 +77,50 @@ class DeviceMessageServiceTest {
     }
 
     @Test
-    void handleMessage_reaction_isIgnored() {
-        // Reactions are replies to the app's actions, so only the app reads them.
+    void handleMessage_actionReply_isIgnored() {
         deviceMessageService.handleMessage(reactionTopic,
-                "{\"id\":\"0\",\"index\":0,\"status\":\"open\",\"prevStatus\":\"closed\",\"mode\":\"connect\"}");
+                "{\"id\":\"0\",\"action\":\"operate\",\"index\":0,\"success\":true,\"status\":\"open\"}");
 
         verify(homeQService, never()).activateAddedDevice(any(), any());
         verify(firebaseService, never()).sendMessage(anyList(), any());
+    }
+
+    @Test
+    void handleMessage_legacyStatusChangeReaction_notifiesTheOwners() {
+        givenDeviceNamed("Gate");
+
+        deviceMessageService.handleMessage(reactionTopic,
+                "{\"index\":0,\"status\":\"open\",\"prevStatus\":\"closed\"}");
+
+        verifyPushed("Your Gate is open", deviceId + "-status");
+    }
+
+    @Test
+    void handleMessage_legacyStartReaction_activatesTheDeviceAndNotifiesItIsOnline() {
+        givenDeviceNamed("Gate");
+
+        deviceMessageService.handleMessage(reactionTopic, "{\"index\":0,\"status\":\"closed\",\"mode\":\"start\"}");
+
+        verify(homeQService).activateAddedDevice(houseId, deviceId);
+        verifyPushed("Your Gate is online", deviceId + "-connection");
+    }
+
+    @Test
+    void handleMessage_legacyWill_notifiesTheOwnersTheDeviceIsOffline() {
+        givenDeviceNamed("Gate");
+
+        deviceMessageService.handleMessage("home/" + houseId + "/will/" + deviceId, "{\"status\":\"offline\"}");
+
+        verifyPushed("Your Gate is offline", deviceId + "-connection");
+    }
+
+    @Test
+    void handleMessage_legacyOnlineWill_notifiesTheOwnersTheDeviceIsOnline() {
+        givenDeviceNamed("Gate");
+
+        deviceMessageService.handleMessage("home/" + houseId + "/will/" + deviceId, "{\"status\":\"online\"}");
+
+        verifyPushed("Your Gate is online", deviceId + "-connection");
     }
 
     @Test

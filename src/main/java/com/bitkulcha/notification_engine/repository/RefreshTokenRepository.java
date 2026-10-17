@@ -15,11 +15,10 @@ import java.util.UUID;
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity, UUID> {
 
-    // Locked so two concurrent refreshes with the same token can't both rotate it.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RefreshTokenEntity> findByTokenHash(String tokenHash);
 
     @Modifying
     @Query("UPDATE RefreshTokenEntity t SET t.revokedAt = :now WHERE t.user.id = :userId AND t.revokedAt IS NULL")
-    int revokeAllForUser(UUID userId, Instant now);
+    void revokeAllForUser(UUID userId, Instant now);
 }

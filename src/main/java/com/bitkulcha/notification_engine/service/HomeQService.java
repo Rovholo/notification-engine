@@ -55,14 +55,9 @@ public class HomeQService {
         return EntityModelMapper.toModel(houseRepository.save(house));
     }
 
-    /**
-     * The app may pick {@code deviceId} itself, so it can send it to the device while offline on the device's access
-     * point. The same id can then arrive again on a retry, so a device that already has it in this house is updated
-     * and returned rather than added twice.
-     */
     @Transactional
     public DeviceModel addDevice(UUID userId, UUID houseId, UUID deviceId, String name, DeviceTypeEnum type,
-                                 String status, DeviceSetupStatusEnum setupStatus) {
+                                 String status, DeviceSetupStatusEnum setupStatus, String secret) {
         // Time ordered ids keep inserts at the end of the primary key index, like the ones the server makes.
         if (deviceId != null && deviceId.version() != 7) {
             throw new InvalidDeviceIdException("Device id must be a UUIDv7");
@@ -84,8 +79,20 @@ public class HomeQService {
         device.setName(name.strip());
         device.setType(type);
         device.setStatus(status);
+        // A retry without a secret, e.g. a device saved while offline, keeps the one the device was set up with.
+        if (secret != null) device.setSecret(secret);
         // New devices haven't been sent their wifi/broker details yet unless the caller says otherwise.
         device.setSetupStatus(setupStatus != null ? setupStatus : DeviceSetupStatusEnum.ADDED);
+        return EntityModelMapper.toModel(device);
+    }
+
+    @Transactional
+    public DeviceModel claimDeviceSecret(UUID userId, UUID houseId, UUID deviceId, String secret) {
+        HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can secure devices in a house");
+        DeviceEntity device = findDevice(house, deviceId)
+                .orElseThrow(() -> new DeviceNotFoundException("No such device in this house"));
+
+        if (device.getSecret() == null) device.setSecret(secret);
         return EntityModelMapper.toModel(device);
     }
 
@@ -102,12 +109,6 @@ public class HomeQService {
         return EntityModelMapper.toModel(device);
     }
 
-    /**
-     * Marks a device ACTIVE once it reports over mqtt, which proves it received its wifi and broker details. Only
-     * ADDED devices change: ACTIVE ones already are, and INACTIVE ones were turned off on purpose.
-     *
-     * @return whether the device was activated
-     */
     @Transactional
     public boolean activateAddedDevice(UUID houseId, UUID deviceId) {
         return houseRepository.findById(houseId)
@@ -120,9 +121,6 @@ public class HomeQService {
                 .orElse(false);
     }
 
-    /**
-     * Looks up a house for messages its devices sent, so no member check: the id comes from the device's mqtt topic.
-     */
     @Transactional(readOnly = true)
     public Optional<HouseModel> findHouse(UUID houseId) {
         return houseRepository.findById(houseId).map(EntityModelMapper::toModel);

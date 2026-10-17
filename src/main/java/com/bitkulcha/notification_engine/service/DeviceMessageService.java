@@ -13,24 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Handles every message received over mqtt, and calls the services that act on it. Devices keep their latest state
- * retained on {@code home/<houseId>/state/<deviceId>}, so the app gets it as soon as it subscribes; retained messages
- * are dropped before they reach this service. A state message is one of:
- * <ul>
- *     <li>{@code "status": "offline"}, the device's last will, which the broker publishes when it drops off without
- *     disconnecting, and the house owners are told it is offline;</li>
- *     <li>{@code "mode": "connect"}, sent each time the device connects, so a device that is still ADDED (e.g. the app
- *     lost its access point before the device replied) is marked ACTIVE, and the house owners are told it is
- *     online;</li>
- *     <li>a status change, which carries the previous status in {@code "prevStatus"}, and the house owners get a push
- *     notification.</li>
- * </ul>
- * Replies to the app's actions go on {@code home/<houseId>/reaction/<deviceId>}, and are only for the app.
- * <p>
- * Each device has two notifications on the phone: its status (e.g. open) and its connection (online or offline). A
- * new one replaces only the old one of its kind, so going offline never hides that the device was left open.
- */
 @Slf4j
 @Service
 public class DeviceMessageService {
@@ -38,6 +20,7 @@ public class DeviceMessageService {
     static final String ONLINE = "online";
     static final String OFFLINE = "offline";
     static final String CONNECT = "connect";
+    static final String START = "start";
     static final String STATUS_KEY = "status";
     static final String CONNECTION_KEY = "connection";
 
@@ -78,14 +61,22 @@ public class DeviceMessageService {
                     notify(houseId, deviceId, (String) message.get("status"), STATUS_KEY);
                 }
             }
+            // Devices on firmware from before the state topic, until they are all reflashed.
+            case "reaction" -> {
+                if (message.get("prevStatus") != null) {
+                    notify(houseId, deviceId, (String) message.get("status"), STATUS_KEY);
+                }
+                if (START.equals(message.get("mode"))) {
+                    activateConnectedDevice(houseId, deviceId);
+                    notify(houseId, deviceId, ONLINE, CONNECTION_KEY);
+                }
+            }
+            case "will" -> notify(houseId, deviceId,
+                    ONLINE.equals(message.get("status")) ? ONLINE : OFFLINE, CONNECTION_KEY);
             default -> { }
         }
     }
 
-    /**
-     * Tells the owners of the house that the device changed status. The app subscribes each user to their own id.
-     * The notification replaces the device's previous one of the same {@code kind}.
-     */
     private void notify(UUID houseId, UUID deviceId, String status, String kind) {
         try {
             HouseModel house = homeQService.findHouse(houseId).orElse(null);

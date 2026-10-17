@@ -25,7 +25,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Satisfies UserDetailsServiceAutoConfiguration so it stops generating a random default-user password; auth is JWT-only.
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> {
@@ -35,7 +34,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter,
-                                           @Value("${springdoc.swagger-ui.enabled:false}") boolean swaggerUiEnabled) throws Exception {
+                                           @Value("${springdoc.swagger-ui.enabled:false}") boolean swaggerUiEnabled) {
         if (swaggerUiEnabled) {
             http.authorizeHttpRequests(auth -> auth
                     .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/swagger/**").permitAll());

@@ -12,7 +12,6 @@ import java.util.UUID;
 @Repository
 public interface HouseRepository  extends JpaRepository<HouseEntity, UUID> {
 
-    // The entity graph loads every owner, resident and device, not just the rows matched by the filter joins.
     @EntityGraph(attributePaths = {"owners", "residents", "devices"})
     @Query("SELECT DISTINCT h FROM HouseEntity h LEFT JOIN h.owners o LEFT JOIN h.residents r "
             + "WHERE o.id = :userId OR r.id = :userId")

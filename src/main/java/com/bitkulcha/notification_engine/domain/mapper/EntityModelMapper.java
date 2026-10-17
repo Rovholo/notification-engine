@@ -21,7 +21,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-// Converts JPA entities into immutable domain models; services hand only models to the rest of the app.
 public final class EntityModelMapper {
 
     private EntityModelMapper() {
@@ -51,10 +50,10 @@ public final class EntityModelMapper {
                 .type(device.getType())
                 .status(Optional.ofNullable(device.getStatus()))
                 .setupStatus(device.getSetupStatus())
+                .secret(Optional.ofNullable(device.getSecret()))
                 .build();
     }
 
-    // Members and devices are sorted by name so responses have a stable order.
     public static HouseModel toModel(HouseEntity house) {
         return HouseModelImmtbl.builder()
                 .id(house.getId())

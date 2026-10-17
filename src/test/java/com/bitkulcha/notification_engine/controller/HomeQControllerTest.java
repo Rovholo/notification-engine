@@ -8,6 +8,7 @@ import com.bitkulcha.notification_engine.domain.model.HouseModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModelImmtbl;
 import com.bitkulcha.notification_engine.domain.model.UserModel;
 import com.bitkulcha.notification_engine.domain.model.UserModelImmtbl;
+import com.bitkulcha.notification_engine.model.ClaimDeviceSecretRequestDto;
 import com.bitkulcha.notification_engine.model.CreateDeviceRequestDto;
 import com.bitkulcha.notification_engine.model.CreateHouseRequestDto;
 import com.bitkulcha.notification_engine.model.DeviceDto;
@@ -104,7 +105,7 @@ class HomeQControllerTest {
         UUID userId = authenticate();
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ADDED);
-        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null)).thenReturn(light);
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT));
@@ -122,7 +123,7 @@ class HomeQControllerTest {
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ACTIVE);
         when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null,
-                DeviceSetupStatusEnum.ACTIVE)).thenReturn(light);
+                DeviceSetupStatusEnum.ACTIVE, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).setupStatus(DeviceSetupStatusDto.ACTIVE));
@@ -136,13 +137,44 @@ class HomeQControllerTest {
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ACTIVE);
         when(homeQService.addDevice(userId, houseId, light.getId(), "Porch light", DeviceTypeEnum.LIGHT, null,
-                DeviceSetupStatusEnum.ACTIVE)).thenReturn(light);
+                DeviceSetupStatusEnum.ACTIVE, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).id(light.getId())
                         .setupStatus(DeviceSetupStatusDto.ACTIVE));
 
         assertThat(response.getBody().getId()).isEqualTo(light.getId().toString());
+    }
+
+    @Test
+    void addDevice_passesSecretToService_andReturnsIt() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        String secret = "b".repeat(64);
+        DeviceModel light = DeviceModelImmtbl.copyOf(device("Porch light", DeviceTypeEnum.LIGHT, null,
+                DeviceSetupStatusEnum.ACTIVE)).withSecret(secret);
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, secret))
+                .thenReturn(light);
+
+        ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
+                new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).secret(secret));
+
+        assertThat(response.getBody().getSecret()).isEqualTo(secret);
+    }
+
+    @Test
+    void claimDeviceSecret_returnsTheSecretTheDeviceHas() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        DeviceModel gate = DeviceModelImmtbl.copyOf(device("Gate", DeviceTypeEnum.GARAGE_DOOR, null,
+                DeviceSetupStatusEnum.ACTIVE)).withSecret("e".repeat(64));
+        when(homeQService.claimDeviceSecret(userId, houseId, gate.getId(), "f".repeat(64))).thenReturn(gate);
+
+        ResponseEntity<DeviceDto> response = homeQController.claimDeviceSecret(houseId, gate.getId(),
+                new ClaimDeviceSecretRequestDto("f".repeat(64)));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getSecret()).isEqualTo("e".repeat(64));
     }
 
     @Test
