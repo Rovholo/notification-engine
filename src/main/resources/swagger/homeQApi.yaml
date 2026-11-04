@@ -159,6 +159,73 @@ paths:
         '404':
           description: No such house or device, or the user is not a member of the house
 
+  /homeq/houses/{houseId}/residents:
+    post:
+      summary: Add a registered user to a house the authenticated user owns, as a resident
+      operationId: addResident
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddResidentRequest'
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseMember'
+        '400':
+          description: Invalid request body or house id
+        '403':
+          description: The user lives in the house but is not an owner
+        '404':
+          description: No such house, the user is not a member of it, or no user has that email
+        '409':
+          description: The user with that email already owns or lives in the house
+
+  /homeq/houses/{houseId}/residents/{userId}:
+    delete:
+      summary: Remove a resident from a house the authenticated user owns
+      description: >
+        The resident stops getting the house and its device secrets from the server, but may still hold secrets
+        their app already loaded.
+      operationId: removeResident
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Removed
+        '400':
+          description: Invalid house id or user id
+        '403':
+          description: The user lives in the house but is not an owner
+        '404':
+          description: No such house or resident, or the user is not a member of the house
+
 
 components:
   securitySchemes:
@@ -298,6 +365,18 @@ components:
           description: >
             The key the app gave the device during setup, as 64 hex characters, so members can sign local network
             requests to it. Leaving it out keeps the current one.
+
+    AddResidentRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 255
+          pattern: '.*\S.*'
+          example: "charlie@example.com"
 
     ClaimDeviceSecretRequest:
       type: object

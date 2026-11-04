@@ -5,12 +5,15 @@ import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.mapper.EntityModelMapper;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
+import com.bitkulcha.notification_engine.domain.model.UserModel;
 import com.bitkulcha.notification_engine.exception.DeviceIdConflictException;
 import com.bitkulcha.notification_engine.exception.DeviceNotFoundException;
 import com.bitkulcha.notification_engine.exception.HouseAccessDeniedException;
+import com.bitkulcha.notification_engine.exception.HouseMemberConflictException;
 import com.bitkulcha.notification_engine.exception.HouseNotFoundException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
 import com.bitkulcha.notification_engine.exception.InvalidDeviceIdException;
+import com.bitkulcha.notification_engine.exception.UserNotFoundException;
 import com.bitkulcha.notification_engine.repository.HouseRepository;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.DeviceEntity;
@@ -110,6 +113,26 @@ public class HomeQService {
     }
 
     @Transactional
+    public UserModel addResident(UUID userId, UUID houseId, String email) {
+        HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can add residents to a house");
+        UserEntity resident = findUserByEmail(email.strip())
+                .orElseThrow(() -> new UserNotFoundException("No user has that email"));
+        if (isMember(house, resident.getId())) {
+            throw new HouseMemberConflictException("That user already belongs to this house");
+        }
+        house.getResidents().add(resident);
+        return EntityModelMapper.toModel(resident);
+    }
+
+    @Transactional
+    public void removeResident(UUID userId, UUID houseId, UUID residentId) {
+        HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can remove residents from a house");
+        if (!house.getResidents().removeIf(resident -> resident.getId().equals(residentId))) {
+            throw new UserNotFoundException("No such resident in this house");
+        }
+    }
+
+    @Transactional
     public boolean activateAddedDevice(UUID houseId, UUID deviceId) {
         return houseRepository.findById(houseId)
                 .flatMap(house -> findDevice(house, deviceId))
@@ -128,6 +151,14 @@ public class HomeQService {
 
     private static Optional<DeviceEntity> findDevice(HouseEntity house, UUID deviceId) {
         return house.getDevices().stream().filter(d -> d.getId().equals(deviceId)).findFirst();
+    }
+
+    // Emails are stored as typed, so an exact match wins and otherwise a single case-insensitive match is used.
+    private Optional<UserEntity> findUserByEmail(String email) {
+        Optional<UserEntity> exact = userRepository.findByEmail(email);
+        if (exact.isPresent()) return exact;
+        List<UserEntity> matches = userRepository.findAllByEmailIgnoreCase(email);
+        return matches.size() == 1 ? Optional.of(matches.getFirst()) : Optional.empty();
     }
 
     private HouseEntity findHouseAsOwner(UUID userId, UUID houseId, String notOwnerMessage) {

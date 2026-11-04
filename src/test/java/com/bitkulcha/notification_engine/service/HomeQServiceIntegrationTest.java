@@ -4,6 +4,10 @@ import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
+import com.bitkulcha.notification_engine.domain.model.UserModel;
+import com.bitkulcha.notification_engine.exception.HouseAccessDeniedException;
+import com.bitkulcha.notification_engine.exception.HouseMemberConflictException;
+import com.bitkulcha.notification_engine.exception.UserNotFoundException;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.UserEntity;
 import com.github.f4b6a3.uuid.UuidCreator;
@@ -19,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -143,6 +148,71 @@ class HomeQServiceIntegrationTest {
 
         assertThat(first.getSecret()).contains("c".repeat(64));
         assertThat(second.getSecret()).contains("c".repeat(64));
+    }
+
+    @Test
+    void addResident_byEmailIgnoringCaseAndSpaces_givesThemTheHouseAndItsSecrets() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        UUID charlieId = userRepository.save(newUser("Charlie")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
+                DeviceSetupStatusEnum.ACTIVE, "a".repeat(64));
+        entityManager.flush();
+        entityManager.clear();
+
+        UserModel added = homeQService.addResident(aliceId, house.getId(), "  Charlie@Example.com ");
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(added.getId()).isEqualTo(charlieId);
+        assertThat(homeQService.getHousesForMember(charlieId)).singleElement().satisfies(loaded -> {
+            assertThat(loaded.getResidents()).extracting(UserModel::getId).containsExactly(charlieId);
+            assertThat(loaded.getDevices()).singleElement()
+                    .satisfies(device -> assertThat(device.getSecret()).contains("a".repeat(64)));
+        });
+    }
+
+    @Test
+    void addResident_rejectsUnknownEmailsExistingMembersAndResidents() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        UUID charlieId = userRepository.save(newUser("Charlie")).getId();
+        userRepository.save(newUser("Dana"));
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        homeQService.addResident(aliceId, house.getId(), "charlie@example.com");
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> homeQService.addResident(aliceId, house.getId(), "nobody@example.com"))
+                .isInstanceOf(UserNotFoundException.class);
+        assertThatThrownBy(() -> homeQService.addResident(aliceId, house.getId(), "alice@example.com"))
+                .isInstanceOf(HouseMemberConflictException.class);
+        assertThatThrownBy(() -> homeQService.addResident(aliceId, house.getId(), "charlie@example.com"))
+                .isInstanceOf(HouseMemberConflictException.class);
+        assertThatThrownBy(() -> homeQService.addResident(charlieId, house.getId(), "dana@example.com"))
+                .isInstanceOf(HouseAccessDeniedException.class);
+    }
+
+    @Test
+    void removeResident_takesTheHouseAwayFromThem() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        UUID charlieId = userRepository.save(newUser("Charlie")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        homeQService.addResident(aliceId, house.getId(), "charlie@example.com");
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> homeQService.removeResident(charlieId, house.getId(), charlieId))
+                .isInstanceOf(HouseAccessDeniedException.class);
+        homeQService.removeResident(aliceId, house.getId(), charlieId);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(homeQService.getHousesForMember(charlieId)).isEmpty();
+        assertThat(homeQService.getHousesForMember(aliceId).getFirst().getResidents()).isEmpty();
+        assertThatThrownBy(() -> homeQService.removeResident(aliceId, house.getId(), charlieId))
+                .isInstanceOf(UserNotFoundException.class);
+        assertThatThrownBy(() -> homeQService.removeResident(aliceId, house.getId(), aliceId))
+                .isInstanceOf(UserNotFoundException.class);
     }
 
     private UserEntity newUser(String name) {

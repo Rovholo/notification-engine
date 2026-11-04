@@ -7,6 +7,7 @@ import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
 import com.bitkulcha.notification_engine.domain.model.UserModel;
+import com.bitkulcha.notification_engine.model.AddResidentRequestDto;
 import com.bitkulcha.notification_engine.model.ClaimDeviceSecretRequestDto;
 import com.bitkulcha.notification_engine.model.CreateDeviceRequestDto;
 import com.bitkulcha.notification_engine.model.CreateHouseRequestDto;
@@ -73,6 +74,18 @@ public class HomeQController implements HomeqApi {
         DeviceModel device = homeQService.claimDeviceSecret(currentUserId(), houseId, deviceId,
                 claimDeviceSecretRequest.getSecret());
         return ResponseEntity.ok(toDevice(device));
+    }
+
+    @Override
+    public ResponseEntity<HouseMemberDto> addResident(UUID houseId, AddResidentRequestDto addResidentRequest) {
+        UserModel resident = homeQService.addResident(currentUserId(), houseId, addResidentRequest.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED).body(toHouseMember(resident));
+    }
+
+    @Override
+    public ResponseEntity<Void> removeResident(UUID houseId, UUID userId) {
+        homeQService.removeResident(currentUserId(), houseId, userId);
+        return ResponseEntity.noContent().build();
     }
 
     private static UUID currentUserId() {

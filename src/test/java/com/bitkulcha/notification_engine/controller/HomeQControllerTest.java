@@ -8,6 +8,7 @@ import com.bitkulcha.notification_engine.domain.model.HouseModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModelImmtbl;
 import com.bitkulcha.notification_engine.domain.model.UserModel;
 import com.bitkulcha.notification_engine.domain.model.UserModelImmtbl;
+import com.bitkulcha.notification_engine.model.AddResidentRequestDto;
 import com.bitkulcha.notification_engine.model.ClaimDeviceSecretRequestDto;
 import com.bitkulcha.notification_engine.model.CreateDeviceRequestDto;
 import com.bitkulcha.notification_engine.model.CreateHouseRequestDto;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -192,6 +194,33 @@ class HomeQControllerTest {
         assertThat(response.getBody().getId()).isEqualTo(garage.getId().toString());
         assertThat(response.getBody().getSetupStatus()).isEqualTo(DeviceSetupStatusDto.ACTIVE);
         assertThat(response.getBody().getStatus()).isEqualTo("closed");
+    }
+
+    @Test
+    void addResident_passesEmailToService_andReturnsCreatedMember() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        UserModel charlie = user("Charlie");
+        when(homeQService.addResident(userId, houseId, "charlie@example.com")).thenReturn(charlie);
+
+        ResponseEntity<HouseMemberDto> response = homeQController.addResident(houseId,
+                new AddResidentRequestDto("charlie@example.com"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().getId()).isEqualTo(charlie.getId().toString());
+        assertThat(response.getBody().getEmail()).isEqualTo("charlie@example.com");
+    }
+
+    @Test
+    void removeResident_removesForCurrentUser_andReturnsNoContent() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        UUID residentId = UUID.randomUUID();
+
+        ResponseEntity<Void> response = homeQController.removeResident(houseId, residentId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(homeQService).removeResident(userId, houseId, residentId);
     }
 
     private UUID authenticate() {

@@ -67,4 +67,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleBrokerNotFound(BrokerNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
     }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<String> handleUserNotFound(UserNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    }
+
+    @ExceptionHandler(HouseMemberConflictException.class)
+    public ResponseEntity<String> handleHouseMemberConflict(HouseMemberConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+    }
 }
