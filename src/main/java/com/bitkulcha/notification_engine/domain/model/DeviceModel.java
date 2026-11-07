@@ -15,4 +15,7 @@ public interface DeviceModel {
     Optional<String> getStatus();
     DeviceSetupStatusEnum getSetupStatus();
     Optional<String> getSecret();
+    Optional<UUID> getHardwareId();
+    Optional<Integer> getChannel();
+    Optional<String> getBoardId();
 }

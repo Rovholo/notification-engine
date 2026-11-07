@@ -17,6 +17,7 @@ import com.bitkulcha.notification_engine.model.DeviceTypeDto;
 import com.bitkulcha.notification_engine.model.HouseDetailsDto;
 import com.bitkulcha.notification_engine.model.HouseMemberDto;
 import com.bitkulcha.notification_engine.model.UpdateDeviceRequestDto;
+import com.bitkulcha.notification_engine.service.DeviceOwnerService;
 import com.bitkulcha.notification_engine.service.HomeQService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,9 +31,11 @@ import java.util.UUID;
 public class HomeQController implements HomeqApi {
 
     final HomeQService homeQService;
+    final DeviceOwnerService deviceOwnerService;
 
-    public HomeQController(HomeQService homeQService) {
+    public HomeQController(HomeQService homeQService, DeviceOwnerService deviceOwnerService) {
         this.homeQService = homeQService;
+        this.deviceOwnerService = deviceOwnerService;
     }
 
     @Override
@@ -56,7 +59,9 @@ public class HomeQController implements HomeqApi {
                 createDeviceRequest.getName(),
                 DeviceTypeEnum.valueOf(createDeviceRequest.getType().name()), createDeviceRequest.getStatus(),
                 setupStatus == null ? null : DeviceSetupStatusEnum.valueOf(setupStatus.name()),
-                createDeviceRequest.getSecret());
+                createDeviceRequest.getSecret(), createDeviceRequest.getHardwareId(), createDeviceRequest.getChannel(),
+                createDeviceRequest.getBoardId());
+        if (createDeviceRequest.getBoardId() != null) deviceOwnerService.publishOwner(houseId, device);
         return ResponseEntity.status(HttpStatus.CREATED).body(toDevice(device));
     }
 
@@ -109,6 +114,9 @@ public class HomeQController implements HomeqApi {
         return new DeviceDto(device.getId().toString(), device.getName(), DeviceTypeDto.fromValue(device.getType().name()),
                 DeviceSetupStatusDto.fromValue(device.getSetupStatus().name()))
                 .status(device.getStatus().orElse(null))
-                .secret(device.getSecret().orElse(null));
+                .secret(device.getSecret().orElse(null))
+                .hardwareId(device.getHardwareId().map(UUID::toString).orElse(null))
+                .channel(device.getChannel().orElse(null))
+                .boardId(device.getBoardId().orElse(null));
     }
 }

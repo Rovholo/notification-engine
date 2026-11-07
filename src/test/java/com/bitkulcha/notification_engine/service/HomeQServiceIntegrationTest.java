@@ -50,8 +50,8 @@ class HomeQServiceIntegrationTest {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
 
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
-        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null, null);
-        homeQService.addDevice(aliceId, house.getId(), null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null);
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null, null, null, null, null);
+        homeQService.addDevice(aliceId, house.getId(), null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -74,7 +74,7 @@ class HomeQServiceIntegrationTest {
     void updateDevice_persistsSetupStatus() {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
-        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null, null);
+        DeviceModel garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", null, null, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -95,12 +95,12 @@ class HomeQServiceIntegrationTest {
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
         UUID deviceId = UuidCreator.getTimeOrderedEpoch();
         homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE, null);
+                DeviceSetupStatusEnum.ACTIVE, null, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
         homeQService.addDevice(aliceId, house.getId(), deviceId, "Main garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE, null);
+                DeviceSetupStatusEnum.ACTIVE, null, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -118,12 +118,12 @@ class HomeQServiceIntegrationTest {
         UUID deviceId = UuidCreator.getTimeOrderedEpoch();
         String secret = "a".repeat(64);
         homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE, secret);
+                DeviceSetupStatusEnum.ACTIVE, secret, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
         homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE, null);
+                DeviceSetupStatusEnum.ACTIVE, null, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -137,7 +137,7 @@ class HomeQServiceIntegrationTest {
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
         UUID deviceId = UuidCreator.getTimeOrderedEpoch();
         homeQService.addDevice(aliceId, house.getId(), deviceId, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE, null);
+                DeviceSetupStatusEnum.ACTIVE, null, null, null, null);
         entityManager.flush();
         entityManager.clear();
 
@@ -156,7 +156,7 @@ class HomeQServiceIntegrationTest {
         UUID charlieId = userRepository.save(newUser("Charlie")).getId();
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
         homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR, null,
-                DeviceSetupStatusEnum.ACTIVE, "a".repeat(64));
+                DeviceSetupStatusEnum.ACTIVE, "a".repeat(64), null, null, null);
         entityManager.flush();
         entityManager.clear();
 

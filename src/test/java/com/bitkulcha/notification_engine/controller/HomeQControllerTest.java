@@ -18,6 +18,7 @@ import com.bitkulcha.notification_engine.model.DeviceTypeDto;
 import com.bitkulcha.notification_engine.model.HouseDetailsDto;
 import com.bitkulcha.notification_engine.model.HouseMemberDto;
 import com.bitkulcha.notification_engine.model.UpdateDeviceRequestDto;
+import com.bitkulcha.notification_engine.service.DeviceOwnerService;
 import com.bitkulcha.notification_engine.service.HomeQService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +46,9 @@ class HomeQControllerTest {
 
     @Mock
     private HomeQService homeQService;
+
+    @Mock
+    private DeviceOwnerService deviceOwnerService;
 
     @InjectMocks
     private HomeQController homeQController;
@@ -107,7 +113,7 @@ class HomeQControllerTest {
         UUID userId = authenticate();
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ADDED);
-        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null)).thenReturn(light);
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null, null, null, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT));
@@ -125,7 +131,7 @@ class HomeQControllerTest {
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ACTIVE);
         when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null,
-                DeviceSetupStatusEnum.ACTIVE, null)).thenReturn(light);
+                DeviceSetupStatusEnum.ACTIVE, null, null, null, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).setupStatus(DeviceSetupStatusDto.ACTIVE));
@@ -139,7 +145,7 @@ class HomeQControllerTest {
         UUID houseId = UUID.randomUUID();
         DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ACTIVE);
         when(homeQService.addDevice(userId, houseId, light.getId(), "Porch light", DeviceTypeEnum.LIGHT, null,
-                DeviceSetupStatusEnum.ACTIVE, null)).thenReturn(light);
+                DeviceSetupStatusEnum.ACTIVE, null, null, null, null)).thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).id(light.getId())
@@ -155,13 +161,47 @@ class HomeQControllerTest {
         String secret = "b".repeat(64);
         DeviceModel light = DeviceModelImmtbl.copyOf(device("Porch light", DeviceTypeEnum.LIGHT, null,
                 DeviceSetupStatusEnum.ACTIVE)).withSecret(secret);
-        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, secret))
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, secret, null, null, null))
                 .thenReturn(light);
 
         ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
                 new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).secret(secret));
 
         assertThat(response.getBody().getSecret()).isEqualTo(secret);
+    }
+
+    @Test
+    void addDevice_passesHardwareFieldsToService_andPublishesTheOwner() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        UUID hardwareId = UUID.randomUUID();
+        DeviceModel light = DeviceModelImmtbl.copyOf(device("Porch light", DeviceTypeEnum.LIGHT, null,
+                        DeviceSetupStatusEnum.ACTIVE))
+                .withHardwareId(hardwareId).withChannel(1).withBoardId("a1b2c3d4e5f6");
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null,
+                hardwareId, 1, "a1b2c3d4e5f6")).thenReturn(light);
+
+        ResponseEntity<DeviceDto> response = homeQController.addDevice(houseId,
+                new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT).hardwareId(hardwareId).channel(1)
+                        .boardId("a1b2c3d4e5f6"));
+
+        assertThat(response.getBody().getHardwareId()).isEqualTo(hardwareId.toString());
+        assertThat(response.getBody().getChannel()).isEqualTo(1);
+        assertThat(response.getBody().getBoardId()).isEqualTo("a1b2c3d4e5f6");
+        verify(deviceOwnerService).publishOwner(houseId, light);
+    }
+
+    @Test
+    void addDevice_withoutBoardId_doesNotPublishAnOwner() {
+        UUID userId = authenticate();
+        UUID houseId = UUID.randomUUID();
+        DeviceModel light = device("Porch light", DeviceTypeEnum.LIGHT, null, DeviceSetupStatusEnum.ADDED);
+        when(homeQService.addDevice(userId, houseId, null, "Porch light", DeviceTypeEnum.LIGHT, null, null, null,
+                null, null, null)).thenReturn(light);
+
+        homeQController.addDevice(houseId, new CreateDeviceRequestDto("Porch light", DeviceTypeDto.LIGHT));
+
+        verify(deviceOwnerService, never()).publishOwner(any(), any());
     }
 
     @Test

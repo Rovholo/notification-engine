@@ -53,7 +53,7 @@ public class DeviceMessageService {
             case "state" -> {
                 // Each step catches its own errors, so a failed notification never stops a device being activated.
                 if (OFFLINE.equals(message.get("status"))) {
-                    notify(houseId, deviceId, OFFLINE, CONNECTION_KEY);
+                    notifyBoard(houseId, deviceId, OFFLINE);
                 } else if (CONNECT.equals(message.get("mode"))) {
                     activateConnectedDevice(houseId, deviceId);
                     notify(houseId, deviceId, ONLINE, CONNECTION_KEY);
@@ -88,18 +88,41 @@ public class DeviceMessageService {
                 log.warn("Not notifying {} for unknown device {} in house {}", status, deviceId, houseId);
                 return;
             }
-            List<String> owners = house.getOwners().stream().map(owner -> owner.getId().toString()).toList();
-            firebaseService.sendMessage(owners, PushMessageModelImmtbl.builder()
-                    .topic(houseId.toString())
-                    .collapseKey(deviceId + "-" + kind)
-                    .notification(NotificationImmtbl.builder()
-                            .title(house.getName())
-                            .body("Your " + device.getName() + " is " + status)
-                            .build())
-                    .build());
+            send(house, device, status, kind);
         } catch (Exception e) {
             log.error("Error notifying {} for device {} in house {}", status, deviceId, houseId, e);
         }
+    }
+
+    // A board has one last will, on its first channel, so going offline covers every channel on the board.
+    private void notifyBoard(UUID houseId, UUID deviceId, String status) {
+        try {
+            HouseModel house = homeQService.findHouse(houseId).orElse(null);
+            List<DeviceModel> devices = house == null ? List.of() : house.getDevices().stream()
+                    .filter(d -> d.getId().equals(deviceId) || d.getHardwareId().filter(deviceId::equals).isPresent())
+                    .toList();
+            if (devices.isEmpty()) {
+                log.warn("Not notifying {} for unknown device {} in house {}", status, deviceId, houseId);
+                return;
+            }
+            for (DeviceModel device : devices) {
+                send(house, device, status, CONNECTION_KEY);
+            }
+        } catch (Exception e) {
+            log.error("Error notifying {} for board {} in house {}", status, deviceId, houseId, e);
+        }
+    }
+
+    private void send(HouseModel house, DeviceModel device, String status, String kind) {
+        List<String> owners = house.getOwners().stream().map(owner -> owner.getId().toString()).toList();
+        firebaseService.sendMessage(owners, PushMessageModelImmtbl.builder()
+                .topic(house.getId().toString())
+                .collapseKey(device.getId() + "-" + kind)
+                .notification(NotificationImmtbl.builder()
+                        .title(house.getName())
+                        .body("Your " + device.getName() + " is " + status)
+                        .build())
+                .build());
     }
 
     private void activateConnectedDevice(UUID houseId, UUID deviceId) {

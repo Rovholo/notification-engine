@@ -51,6 +51,9 @@ public final class EntityModelMapper {
                 .status(Optional.ofNullable(device.getStatus()))
                 .setupStatus(device.getSetupStatus())
                 .secret(Optional.ofNullable(device.getSecret()))
+                .hardwareId(Optional.ofNullable(device.getHardwareId()))
+                .channel(Optional.ofNullable(device.getChannel()))
+                .boardId(Optional.ofNullable(device.getBoardId()))
                 .build();
     }
 

@@ -55,6 +55,16 @@ public class DeviceEntity {
     @Column(length = 64)
     private String secret;
 
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "hardware_id", length = 36)
+    private UUID hardwareId;
+
+    @Column
+    private Integer channel;
+
+    @Column(name = "board_id", length = 32)
+    private String boardId;
+
     @LastModifiedBy
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "updated_by", length = 36)

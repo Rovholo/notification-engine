@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -130,6 +131,25 @@ class DeviceMessageServiceTest {
         deviceMessageService.handleMessage(stateTopic, "{\"status\":\"offline\"}");
 
         verifyPushed("Your Gate is offline", deviceId + "-connection");
+    }
+
+    @Test
+    void handleMessage_offlineState_notifiesEveryChannelOnTheBoard() {
+        UUID secondId = UuidCreator.getTimeOrderedEpoch();
+        when(homeQService.findHouse(houseId)).thenReturn(Optional.of(house(List.of(
+                DeviceModelImmtbl.builder().id(deviceId).name("Gate").type(DeviceTypeEnum.GARAGE_DOOR)
+                        .setupStatus(DeviceSetupStatusEnum.ACTIVE).hardwareId(deviceId).channel(0).build(),
+                DeviceModelImmtbl.builder().id(secondId).name("Porch light").type(DeviceTypeEnum.LIGHT)
+                        .setupStatus(DeviceSetupStatusEnum.ACTIVE).hardwareId(deviceId).channel(1).build(),
+                DeviceModelImmtbl.builder().id(UuidCreator.getTimeOrderedEpoch()).name("Pool pump")
+                        .type(DeviceTypeEnum.LIGHT).setupStatus(DeviceSetupStatusEnum.ACTIVE).build()))));
+
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"offline\"}");
+
+        ArgumentCaptor<PushMessageModel> push = ArgumentCaptor.forClass(PushMessageModel.class);
+        verify(firebaseService, times(2)).sendMessage(eq(List.of(ownerId.toString())), push.capture());
+        assertThat(push.getAllValues()).extracting(p -> p.getNotification().getBody())
+                .containsExactly("Your Gate is offline", "Your Porch light is offline");
     }
 
     @Test

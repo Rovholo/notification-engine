@@ -307,6 +307,17 @@ components:
           type: string
           description: >
             The key the app signs local network requests to the device with. Only house members get it.
+        hardwareId:
+          type: string
+          description: >
+            The id of the first channel on the same board, shared by every channel of a multi channel board.
+            Missing for single channel devices.
+        channel:
+          type: integer
+          description: The relay index on the board. Missing for single channel devices.
+        boardId:
+          type: string
+          description: The MAC address of the board that currently runs this device, as 12 hex characters.
 
     DeviceType:
       type: string
@@ -365,6 +376,23 @@ components:
           description: >
             The key the app gave the device during setup, as 64 hex characters, so members can sign local network
             requests to it. Leaving it out keeps the current one.
+        hardwareId:
+          type: string
+          format: uuid
+          description: >
+            The id of the first channel on the same board, for each channel of a multi channel board.
+            Leaving it out marks the device as single channel.
+        channel:
+          type: integer
+          minimum: 0
+          maximum: 15
+          description: The relay index on the board. Leave it out for single channel devices.
+        boardId:
+          type: string
+          pattern: '^[0-9a-f]{12}$'
+          description: >
+            The MAC address of the board that accepted the setup. The server publishes it as the retained owner
+            of the device, so any other board still using the id stops. Leaving it out keeps the current one.
 
     AddResidentRequest:
       type: object

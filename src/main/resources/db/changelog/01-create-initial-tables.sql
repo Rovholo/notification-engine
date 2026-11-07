@@ -162,3 +162,13 @@ ALTER TABLE devices ADD COLUMN setup_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE
 ALTER TABLE devices ADD COLUMN secret VARCHAR(64);
 
 --rollback ALTER TABLE devices DROP COLUMN secret;
+
+--changeset brendan:011-add-device-hardware
+-- hardware_id groups the channels of one board and is the id of its first channel; NULL for single channel devices.
+ALTER TABLE devices ADD COLUMN hardware_id VARCHAR(36);
+ALTER TABLE devices ADD COLUMN channel INTEGER;
+ALTER TABLE devices ADD COLUMN board_id VARCHAR(32);
+
+--rollback ALTER TABLE devices DROP COLUMN board_id;
+--rollback ALTER TABLE devices DROP COLUMN channel;
+--rollback ALTER TABLE devices DROP COLUMN hardware_id;

@@ -60,7 +60,8 @@ public class HomeQService {
 
     @Transactional
     public DeviceModel addDevice(UUID userId, UUID houseId, UUID deviceId, String name, DeviceTypeEnum type,
-                                 String status, DeviceSetupStatusEnum setupStatus, String secret) {
+                                 String status, DeviceSetupStatusEnum setupStatus, String secret,
+                                 UUID hardwareId, Integer channel, String boardId) {
         // Time ordered ids keep inserts at the end of the primary key index, like the ones the server makes.
         if (deviceId != null && deviceId.version() != 7) {
             throw new InvalidDeviceIdException("Device id must be a UUIDv7");
@@ -84,6 +85,9 @@ public class HomeQService {
         device.setStatus(status);
         // A retry without a secret, e.g. a device saved while offline, keeps the one the device was set up with.
         if (secret != null) device.setSecret(secret);
+        device.setHardwareId(hardwareId);
+        device.setChannel(channel);
+        if (boardId != null) device.setBoardId(boardId);
         // New devices haven't been sent their wifi/broker details yet unless the caller says otherwise.
         device.setSetupStatus(setupStatus != null ? setupStatus : DeviceSetupStatusEnum.ADDED);
         return EntityModelMapper.toModel(device);
