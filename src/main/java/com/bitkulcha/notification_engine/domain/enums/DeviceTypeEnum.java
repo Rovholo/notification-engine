@@ -17,4 +17,8 @@ public enum DeviceTypeEnum {
         this.label = label;
     }
 
+    public boolean notifiesByDefault() {
+        return this == GARAGE_DOOR || this == SENSOR;
+    }
+
 }

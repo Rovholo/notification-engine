@@ -69,7 +69,8 @@ public class HomeQController implements HomeqApi {
     public ResponseEntity<DeviceDto> updateDevice(UUID houseId, UUID deviceId, UpdateDeviceRequestDto updateDeviceRequest) {
         DeviceModel device = homeQService.updateDevice(currentUserId(), houseId, deviceId, updateDeviceRequest.getName(),
                 DeviceTypeEnum.valueOf(updateDeviceRequest.getType().name()),
-                DeviceSetupStatusEnum.valueOf(updateDeviceRequest.getSetupStatus().name()));
+                DeviceSetupStatusEnum.valueOf(updateDeviceRequest.getSetupStatus().name()),
+                updateDeviceRequest.getNotifyStatus(), updateDeviceRequest.getNotifyConnection());
         return ResponseEntity.ok(toDevice(device));
     }
 
@@ -117,6 +118,8 @@ public class HomeQController implements HomeqApi {
                 .secret(device.getSecret().orElse(null))
                 .hardwareId(device.getHardwareId().map(UUID::toString).orElse(null))
                 .channel(device.getChannel().orElse(null))
-                .boardId(device.getBoardId().orElse(null));
+                .boardId(device.getBoardId().orElse(null))
+                .notifyStatus(device.notifiesStatus())
+                .notifyConnection(device.notifiesConnection());
     }
 }

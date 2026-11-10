@@ -225,12 +225,14 @@ class HomeQControllerTest {
         UUID houseId = UUID.randomUUID();
         DeviceModel garage = device("Garage", DeviceTypeEnum.GARAGE_DOOR, "closed", DeviceSetupStatusEnum.ACTIVE);
         when(homeQService.updateDevice(userId, houseId, garage.getId(), "Garage", DeviceTypeEnum.GARAGE_DOOR,
-                DeviceSetupStatusEnum.ACTIVE)).thenReturn(garage);
+                DeviceSetupStatusEnum.ACTIVE, null, false)).thenReturn(garage);
 
         ResponseEntity<DeviceDto> response = homeQController.updateDevice(houseId, garage.getId(),
-                new UpdateDeviceRequestDto("Garage", DeviceTypeDto.GARAGE_DOOR, DeviceSetupStatusDto.ACTIVE));
+                new UpdateDeviceRequestDto("Garage", DeviceTypeDto.GARAGE_DOOR, DeviceSetupStatusDto.ACTIVE)
+                        .notifyConnection(false));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getNotifyStatus()).isTrue();
         assertThat(response.getBody().getId()).isEqualTo(garage.getId().toString());
         assertThat(response.getBody().getSetupStatus()).isEqualTo(DeviceSetupStatusDto.ACTIVE);
         assertThat(response.getBody().getStatus()).isEqualTo("closed");

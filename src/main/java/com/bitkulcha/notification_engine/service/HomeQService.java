@@ -2,6 +2,7 @@ package com.bitkulcha.notification_engine.service;
 
 import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
+import com.bitkulcha.notification_engine.domain.enums.StatusChangeEnum;
 import com.bitkulcha.notification_engine.domain.mapper.EntityModelMapper;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
@@ -14,6 +15,7 @@ import com.bitkulcha.notification_engine.exception.HouseNotFoundException;
 import com.bitkulcha.notification_engine.exception.InvalidCredentialsException;
 import com.bitkulcha.notification_engine.exception.InvalidDeviceIdException;
 import com.bitkulcha.notification_engine.exception.UserNotFoundException;
+import com.bitkulcha.notification_engine.repository.DeviceRepository;
 import com.bitkulcha.notification_engine.repository.HouseRepository;
 import com.bitkulcha.notification_engine.repository.UserRepository;
 import com.bitkulcha.notification_engine.repository.entity.DeviceEntity;
@@ -33,10 +35,15 @@ public class HomeQService {
 
     final HouseRepository houseRepository;
     final UserRepository userRepository;
+    final DeviceRepository deviceRepository;
 
-    public HomeQService(HouseRepository houseRepository, UserRepository userRepository) {
+    static final String OFFLINE = "offline";
+
+    public HomeQService(HouseRepository houseRepository, UserRepository userRepository,
+                        DeviceRepository deviceRepository) {
         this.houseRepository = houseRepository;
         this.userRepository = userRepository;
+        this.deviceRepository = deviceRepository;
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +113,13 @@ public class HomeQService {
     @Transactional
     public DeviceModel updateDevice(UUID userId, UUID houseId, UUID deviceId, String name, DeviceTypeEnum type,
                                     DeviceSetupStatusEnum setupStatus) {
+        return updateDevice(userId, houseId, deviceId, name, type, setupStatus, null, null);
+    }
+
+    @Transactional
+    public DeviceModel updateDevice(UUID userId, UUID houseId, UUID deviceId, String name, DeviceTypeEnum type,
+                                    DeviceSetupStatusEnum setupStatus, Boolean notifyStatus,
+                                    Boolean notifyConnection) {
         HouseEntity house = findHouseAsOwner(userId, houseId, "Only owners can update devices in a house");
         DeviceEntity device = findDevice(house, deviceId)
                 .orElseThrow(() -> new DeviceNotFoundException("No such device in this house"));
@@ -113,7 +127,26 @@ public class HomeQService {
         device.setName(name.strip());
         device.setType(type);
         device.setSetupStatus(setupStatus);
+        if (notifyStatus != null) device.setNotifyStatus(notifyStatus);
+        if (notifyConnection != null) device.setNotifyConnection(notifyConnection);
         return EntityModelMapper.toModel(device);
+    }
+
+    /**
+     * Stores the status a device reported and says whether it is a change from the last one stored. A device that
+     * had no status yet, or was only known as offline, gets its first status, which is not a change.
+     */
+    @Transactional
+    public StatusChangeEnum recordStatus(UUID houseId, UUID deviceId, String status) {
+        Optional<DeviceEntity> device = deviceRepository.findInHouse(houseId, deviceId);
+        if (device.isEmpty()) return StatusChangeEnum.UNKNOWN_DEVICE;
+        String previous = device.get().getStatus();
+        if (status.equals(previous)) return StatusChangeEnum.UNCHANGED;
+        int updated = previous == null
+                ? deviceRepository.setFirstStatus(houseId, deviceId, status)
+                : deviceRepository.replaceStatus(houseId, deviceId, previous, status);
+        if (updated == 0) return StatusChangeEnum.UNCHANGED;
+        return previous == null || OFFLINE.equals(previous) ? StatusChangeEnum.FIRST : StatusChangeEnum.CHANGED;
     }
 
     @Transactional
@@ -143,6 +176,22 @@ public class HomeQService {
                 .filter(device -> device.getSetupStatus() == DeviceSetupStatusEnum.ADDED)
                 .map(device -> {
                     device.setSetupStatus(DeviceSetupStatusEnum.ACTIVE);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * Puts a device that was reset with its button back to waiting for setup, so the app offers to set it up again.
+     * Its stored status goes back to offline, so the status it reports after setup is a first status, not a change.
+     */
+    @Transactional
+    public boolean markDeviceReset(UUID houseId, UUID deviceId) {
+        return deviceRepository.findInHouse(houseId, deviceId)
+                .filter(device -> device.getSetupStatus() == DeviceSetupStatusEnum.ACTIVE)
+                .map(device -> {
+                    device.setSetupStatus(DeviceSetupStatusEnum.ADDED);
+                    device.setStatus(OFFLINE);
                     return true;
                 })
                 .orElse(false);

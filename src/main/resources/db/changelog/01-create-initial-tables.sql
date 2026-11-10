@@ -172,3 +172,11 @@ ALTER TABLE devices ADD COLUMN board_id VARCHAR(32);
 --rollback ALTER TABLE devices DROP COLUMN board_id;
 --rollback ALTER TABLE devices DROP COLUMN channel;
 --rollback ALTER TABLE devices DROP COLUMN hardware_id;
+
+--changeset brendan:012-add-device-notifications
+-- NULL means the default for the device type: on for doors and sensors, off for lights and air cons.
+ALTER TABLE devices ADD COLUMN notify_status BOOLEAN;
+ALTER TABLE devices ADD COLUMN notify_connection BOOLEAN;
+
+--rollback ALTER TABLE devices DROP COLUMN notify_connection;
+--rollback ALTER TABLE devices DROP COLUMN notify_status;

@@ -18,4 +18,14 @@ public interface DeviceModel {
     Optional<UUID> getHardwareId();
     Optional<Integer> getChannel();
     Optional<String> getBoardId();
+    Optional<Boolean> getNotifyStatus();
+    Optional<Boolean> getNotifyConnection();
+
+    default boolean notifiesStatus() {
+        return getNotifyStatus().orElse(getType().notifiesByDefault());
+    }
+
+    default boolean notifiesConnection() {
+        return getNotifyConnection().orElse(getType().notifiesByDefault());
+    }
 }

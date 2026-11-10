@@ -318,6 +318,14 @@ components:
         boardId:
           type: string
           description: The MAC address of the board that currently runs this device, as 12 hex characters.
+        notifyStatus:
+          type: boolean
+          description: >
+            Whether owners get a push when the device changes status, such as a door opening. Defaults to on for
+            garage doors and sensors and off for lights and air cons.
+        notifyConnection:
+          type: boolean
+          description: Whether owners get a push when the device goes online or offline. Same defaults as notifyStatus.
 
     DeviceType:
       type: string
@@ -433,3 +441,9 @@ components:
           $ref: '#/components/schemas/DeviceType'
         setupStatus:
           $ref: '#/components/schemas/DeviceSetupStatus'
+        notifyStatus:
+          type: boolean
+          description: Turns status change pushes on or off. Leaving it out keeps the current setting.
+        notifyConnection:
+          type: boolean
+          description: Turns online and offline pushes on or off. Leaving it out keeps the current setting.

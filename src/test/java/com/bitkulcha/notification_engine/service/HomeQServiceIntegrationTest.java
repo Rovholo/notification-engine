@@ -2,6 +2,7 @@ package com.bitkulcha.notification_engine.service;
 
 import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
+import com.bitkulcha.notification_engine.domain.enums.StatusChangeEnum;
 import com.bitkulcha.notification_engine.domain.model.DeviceModel;
 import com.bitkulcha.notification_engine.domain.model.HouseModel;
 import com.bitkulcha.notification_engine.domain.model.UserModel;
@@ -213,6 +214,68 @@ class HomeQServiceIntegrationTest {
                 .isInstanceOf(UserNotFoundException.class);
         assertThatThrownBy(() -> homeQService.removeResident(aliceId, house.getId(), aliceId))
                 .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    void recordStatus_tellsFirstChangedAndRepeatedStatuses() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        UUID garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR,
+                "offline", null, null, null, null, null).getId();
+        UUID light = homeQService.addDevice(aliceId, house.getId(), null, "Porch light", DeviceTypeEnum.LIGHT,
+                null, null, null, null, null, null).getId();
+        entityManager.flush();
+
+        assertThat(homeQService.recordStatus(house.getId(), garage, "closed")).isEqualTo(StatusChangeEnum.FIRST);
+        assertThat(homeQService.recordStatus(house.getId(), garage, "closed")).isEqualTo(StatusChangeEnum.UNCHANGED);
+        assertThat(homeQService.recordStatus(house.getId(), garage, "open")).isEqualTo(StatusChangeEnum.CHANGED);
+        assertThat(homeQService.recordStatus(house.getId(), light, "on")).isEqualTo(StatusChangeEnum.FIRST);
+        assertThat(homeQService.recordStatus(UUID.randomUUID(), garage, "closed"))
+                .isEqualTo(StatusChangeEnum.UNKNOWN_DEVICE);
+        entityManager.clear();
+
+        assertThat(homeQService.findHouse(house.getId()).orElseThrow().getDevices())
+                .extracting(d -> d.getStatus().orElse(null))
+                .containsExactly("open", "on");
+    }
+
+    @Test
+    void markDeviceReset_putsAnActiveDeviceBackToAddedOnce() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        UUID garage = homeQService.addDevice(aliceId, house.getId(), null, "Garage", DeviceTypeEnum.GARAGE_DOOR,
+                "closed", DeviceSetupStatusEnum.ACTIVE, null, null, null, null).getId();
+        entityManager.flush();
+
+        assertThat(homeQService.markDeviceReset(house.getId(), garage)).isTrue();
+        assertThat(homeQService.markDeviceReset(house.getId(), garage)).isFalse();
+        assertThat(homeQService.markDeviceReset(UUID.randomUUID(), garage)).isFalse();
+        entityManager.flush();
+        entityManager.clear();
+
+        DeviceModel reset = homeQService.findHouse(house.getId()).orElseThrow().getDevices().get(0);
+        assertThat(reset.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ADDED);
+        assertThat(reset.getStatus()).contains("offline");
+        assertThat(homeQService.recordStatus(house.getId(), garage, "closed")).isEqualTo(StatusChangeEnum.FIRST);
+    }
+
+    @Test
+    void updateDevice_changesNotificationsOnlyWhenGiven() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        DeviceModel light = homeQService.addDevice(aliceId, house.getId(), null, "Porch light", DeviceTypeEnum.LIGHT,
+                null, null, null, null, null, null);
+        assertThat(light.notifiesStatus()).isFalse();
+        assertThat(light.notifiesConnection()).isFalse();
+
+        DeviceModel enabled = homeQService.updateDevice(aliceId, house.getId(), light.getId(), "Porch light",
+                DeviceTypeEnum.LIGHT, DeviceSetupStatusEnum.ACTIVE, true, null);
+        DeviceModel renamed = homeQService.updateDevice(aliceId, house.getId(), light.getId(), "Porch",
+                DeviceTypeEnum.LIGHT, DeviceSetupStatusEnum.ACTIVE);
+
+        assertThat(enabled.notifiesStatus()).isTrue();
+        assertThat(renamed.notifiesStatus()).isTrue();
+        assertThat(renamed.notifiesConnection()).isFalse();
     }
 
     private UserEntity newUser(String name) {

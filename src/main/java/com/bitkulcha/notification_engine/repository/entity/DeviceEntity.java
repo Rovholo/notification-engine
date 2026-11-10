@@ -65,6 +65,12 @@ public class DeviceEntity {
     @Column(name = "board_id", length = 32)
     private String boardId;
 
+    @Column(name = "notify_status")
+    private Boolean notifyStatus;
+
+    @Column(name = "notify_connection")
+    private Boolean notifyConnection;
+
     @LastModifiedBy
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "updated_by", length = 36)

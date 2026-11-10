@@ -20,7 +20,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,11 +74,11 @@ class MqttConfigTest {
 
         mqttConfig.inboundHandler().handleMessage(message);
 
-        verify(deviceMessageService).handleMessage("home/h/state/d", "{\"mode\":\"connect\"}");
+        verify(deviceMessageService).handleMessage("home/h/state/d", "{\"mode\":\"connect\"}", false);
     }
 
     @Test
-    void inboundHandler_ignoresRetainedMessages() {
+    void inboundHandler_marksRetainedMessages() {
         Message<String> message = MessageBuilder.withPayload("{\"status\":\"offline\"}")
                 .setHeader(MqttHeaders.RECEIVED_TOPIC, "home/h/state/d")
                 .setHeader(MqttHeaders.RECEIVED_RETAINED, true)
@@ -87,7 +86,7 @@ class MqttConfigTest {
 
         mqttConfig.inboundHandler().handleMessage(message);
 
-        verifyNoInteractions(deviceMessageService);
+        verify(deviceMessageService).handleMessage("home/h/state/d", "{\"status\":\"offline\"}", true);
     }
 
     private MqttConnectOptions connectionOptions() {

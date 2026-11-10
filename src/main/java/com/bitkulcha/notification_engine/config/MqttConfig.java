@@ -76,13 +76,10 @@ public class MqttConfig {
     @Bean
     @ServiceActivator(inputChannel = "mqttInboundChannel")
     public MessageHandler inboundHandler() {
-        return message -> {
-            // Retained messages are replayed on every (re)subscribe, so only live ones are new events.
-            if (Boolean.TRUE.equals(message.getHeaders().get(MqttHeaders.RECEIVED_RETAINED))) return;
-            deviceMessageService.handleMessage(
-                    (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC),
-                    message.getPayload());
-        };
+        return message -> deviceMessageService.handleMessage(
+                (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC),
+                message.getPayload(),
+                Boolean.TRUE.equals(message.getHeaders().get(MqttHeaders.RECEIVED_RETAINED)));
     }
 
     @Bean
