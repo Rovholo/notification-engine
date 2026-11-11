@@ -180,3 +180,9 @@ ALTER TABLE devices ADD COLUMN notify_connection BOOLEAN;
 
 --rollback ALTER TABLE devices DROP COLUMN notify_connection;
 --rollback ALTER TABLE devices DROP COLUMN notify_status;
+
+--changeset brendan:013-widen-device-board-id
+-- Shelly devices on stock firmware are known by their Shelly id, as shelly:<id>, which is longer than a MAC address.
+ALTER TABLE devices ALTER COLUMN board_id SET DATA TYPE VARCHAR(64);
+
+--rollback ALTER TABLE devices ALTER COLUMN board_id SET DATA TYPE VARCHAR(32);

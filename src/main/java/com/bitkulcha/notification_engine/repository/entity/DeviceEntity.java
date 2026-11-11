@@ -62,7 +62,7 @@ public class DeviceEntity {
     @Column
     private Integer channel;
 
-    @Column(name = "board_id", length = 32)
+    @Column(name = "board_id", length = 64)
     private String boardId;
 
     @Column(name = "notify_status")

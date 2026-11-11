@@ -317,7 +317,9 @@ components:
           description: The relay index on the board. Missing for single channel devices.
         boardId:
           type: string
-          description: The MAC address of the board that currently runs this device, as 12 hex characters.
+          description: >
+            The board that currently runs this device: its MAC address as 12 hex characters, or shelly:<id> for a
+            Shelly on stock firmware.
         notifyStatus:
           type: boolean
           description: >
@@ -397,9 +399,10 @@ components:
           description: The relay index on the board. Leave it out for single channel devices.
         boardId:
           type: string
-          pattern: '^[0-9a-f]{12}$'
+          pattern: '^([0-9a-f]{12}|shelly:[a-z0-9-]{1,48})$'
           description: >
-            The MAC address of the board that accepted the setup. The server publishes it as the retained owner
+            The board that accepted the setup: its MAC address as 12 hex characters, or shelly:<id> for a Shelly on
+            stock firmware. The server publishes it as the retained owner
             of the device, so any other board still using the id stops. Leaving it out keeps the current one.
 
     AddResidentRequest:

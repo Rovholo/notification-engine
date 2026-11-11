@@ -240,6 +240,20 @@ class HomeQServiceIntegrationTest {
     }
 
     @Test
+    void addDevice_storesALongShellyBoardId() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        String board = "shelly:shellyplus2pm-aabbccddeeff";
+        homeQService.addDevice(aliceId, house.getId(), null, "Porch", DeviceTypeEnum.LIGHT, null, null, null, null,
+                null, board);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(homeQService.findHouse(house.getId()).orElseThrow().getDevices().get(0).getBoardId())
+                .contains(board);
+    }
+
+    @Test
     void markDeviceReset_putsAnActiveDeviceBackToAddedOnce() {
         UUID aliceId = userRepository.save(newUser("Alice")).getId();
         HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
