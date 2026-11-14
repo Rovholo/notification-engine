@@ -186,3 +186,11 @@ ALTER TABLE devices ADD COLUMN notify_connection BOOLEAN;
 ALTER TABLE devices ALTER COLUMN board_id SET DATA TYPE VARCHAR(64);
 
 --rollback ALTER TABLE devices ALTER COLUMN board_id SET DATA TYPE VARCHAR(32);
+
+--changeset brendan:014-add-refresh-token-replaced-by
+-- The token a refresh rotated this one into, so a retry right after a lost response can be told apart from reuse.
+ALTER TABLE refresh_token ADD COLUMN replaced_by_id VARCHAR(36);
+CREATE INDEX idx_refresh_token_expires_at ON refresh_token (expires_at);
+
+--rollback DROP INDEX idx_refresh_token_expires_at;
+--rollback ALTER TABLE refresh_token DROP COLUMN replaced_by_id;

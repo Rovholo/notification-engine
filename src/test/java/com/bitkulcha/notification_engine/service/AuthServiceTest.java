@@ -399,12 +399,36 @@ class AuthServiceTest {
         when(refreshTokenService.find("refresh-old")).thenReturn(Optional.of(existing));
         when(credentialRepository.findByUserId(user.getId())).thenReturn(Optional.of(credential(user)));
         when(jwtService.generateToken(user.getId(), "alice", Set.of())).thenReturn("token-new");
-        when(refreshTokenService.issue(user)).thenReturn("refresh-new");
+        when(refreshTokenService.rotate(existing)).thenReturn("refresh-new");
 
         AuthTokensModel tokens = authService.refresh("refresh-old");
 
         assertThat(tokens).isEqualTo(tokens("token-new", "refresh-new"));
-        verify(refreshTokenService).revoke(existing);
+        verify(refreshTokenService).rotate(existing);
+        verify(refreshTokenService, never()).issue(any());
+    }
+
+    @Test
+    void refresh_retryWithinGracePeriod_rotatesTheSuccessorInstead() {
+        UserEntity user = new UserEntity();
+        RefreshTokenEntity existing = new RefreshTokenEntity();
+        existing.setUser(user);
+        existing.setExpiresAt(Instant.now().plus(Duration.ofDays(1)));
+        existing.setRevokedAt(Instant.now().minus(Duration.ofSeconds(5)));
+        RefreshTokenEntity successor = new RefreshTokenEntity();
+        successor.setUser(user);
+        successor.setExpiresAt(Instant.now().plus(Duration.ofDays(30)));
+
+        when(refreshTokenService.find("refresh-old")).thenReturn(Optional.of(existing));
+        when(refreshTokenService.findRetrySuccessor(existing)).thenReturn(Optional.of(successor));
+        when(credentialRepository.findByUserId(user.getId())).thenReturn(Optional.of(credential(user)));
+        when(jwtService.generateToken(user.getId(), "alice", Set.of())).thenReturn("token-new");
+        when(refreshTokenService.rotate(successor)).thenReturn("refresh-new");
+
+        AuthTokensModel tokens = authService.refresh("refresh-old");
+
+        assertThat(tokens).isEqualTo(tokens("token-new", "refresh-new"));
+        verify(refreshTokenService, never()).revokeAll(any());
     }
 
     @Test
@@ -436,12 +460,14 @@ class AuthServiceTest {
         existing.setExpiresAt(Instant.now().plus(Duration.ofDays(1)));
         existing.setRevokedAt(Instant.now().minus(Duration.ofMinutes(5)));
         when(refreshTokenService.find("refresh-old")).thenReturn(Optional.of(existing));
+        when(refreshTokenService.findRetrySuccessor(existing)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.refresh("refresh-old"))
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
         verify(refreshTokenService).revokeAll(user.getId());
         verify(refreshTokenService, never()).issue(any());
+        verify(refreshTokenService, never()).rotate(any());
     }
 
     @Test

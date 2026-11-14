@@ -19,6 +19,8 @@ jwt:
   secret: local-development-only-secret-key-0123456789-change-me
   expiration-minutes: 15
   refresh-expiration-days: 30
+  refresh-reuse-grace-seconds: 60
+  refresh-cleanup-cron: "0 0 3 * * *"
 
 springdoc:
   api-docs:

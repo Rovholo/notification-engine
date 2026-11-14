@@ -34,4 +34,8 @@ public class RefreshTokenEntity {
     @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "revoked_at")
     private Instant revokedAt;
+
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "replaced_by_id", length = 36)
+    private UUID replacedById;
 }

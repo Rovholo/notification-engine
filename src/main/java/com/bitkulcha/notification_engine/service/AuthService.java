@@ -136,18 +136,23 @@ public class AuthService {
         UUID userId = existing.getUser().getId();
 
         if (existing.getRevokedAt() != null) {
-            // Refresh tokens are single use, so seeing a revoked one again means it may have been stolen.
-            refreshTokenService.revokeAll(userId);
-            throw new InvalidRefreshTokenException("Invalid refresh token");
+            RefreshTokenEntity revoked = existing;
+            existing = refreshTokenService.findRetrySuccessor(revoked).orElseGet(() -> {
+                // Refresh tokens are single use, so seeing a revoked one again means it may have been stolen.
+                refreshTokenService.revokeAll(userId);
+                throw new InvalidRefreshTokenException("Invalid refresh token");
+            });
         }
         if (!existing.getExpiresAt().isAfter(Instant.now())) {
             throw new InvalidRefreshTokenException("Refresh token has expired");
         }
 
-        refreshTokenService.revoke(existing);
         CredentialEntity credential = credentialRepository.findByUserId(userId)
                 .orElseThrow(() -> new InvalidRefreshTokenException("Invalid refresh token"));
-        return issueTokens(credential);
+        return AuthTokensModelImmtbl.builder()
+                .accessToken(accessToken(credential))
+                .refreshToken(refreshTokenService.rotate(existing))
+                .build();
     }
 
     @Transactional
@@ -198,12 +203,14 @@ public class AuthService {
     }
 
     private AuthTokensModel issueTokens(CredentialEntity credential) {
-        UserEntity user = credential.getUser();
-        String accessToken = jwtService.generateToken(user.getId(), credential.getUsername(), user.getRoles());
-        String refreshToken = refreshTokenService.issue(user);
         return AuthTokensModelImmtbl.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .accessToken(accessToken(credential))
+                .refreshToken(refreshTokenService.issue(credential.getUser()))
                 .build();
+    }
+
+    private String accessToken(CredentialEntity credential) {
+        UserEntity user = credential.getUser();
+        return jwtService.generateToken(user.getId(), credential.getUsername(), user.getRoles());
     }
 }

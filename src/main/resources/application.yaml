@@ -50,6 +50,8 @@ jwt:
   secret: ${JWT_SECRET}
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
   refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
+  refresh-reuse-grace-seconds: ${JWT_REFRESH_REUSE_GRACE_SECONDS:60}
+  refresh-cleanup-cron: ${JWT_REFRESH_CLEANUP_CRON:0 0 3 * * *}
 
 springdoc:
   api-docs:
