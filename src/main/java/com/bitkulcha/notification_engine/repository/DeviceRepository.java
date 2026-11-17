@@ -1,11 +1,13 @@
 package com.bitkulcha.notification_engine.repository;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceConnectionEnum;
 import com.bitkulcha.notification_engine.repository.entity.DeviceEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,4 +27,21 @@ public interface DeviceRepository extends JpaRepository<DeviceEntity, UUID> {
     @Query("UPDATE DeviceEntity d SET d.status = :status WHERE d.id = :deviceId AND d.house.id = :houseId "
             + "AND d.status IS NULL")
     int setFirstStatus(UUID houseId, UUID deviceId, String status);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE DeviceEntity d SET d.connection = :connection, d.lastSeenAt = :now "
+            + "WHERE d.id = :deviceId AND d.house.id = :houseId")
+    int markOnline(UUID houseId, UUID deviceId, DeviceConnectionEnum connection, Instant now);
+
+    // A board's channels share the first channel's id as their hardware id, so this covers the whole board.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE DeviceEntity d SET d.connection = :connection WHERE d.house.id = :houseId "
+            + "AND (d.id = :boardDeviceId OR d.hardwareId = :boardDeviceId)")
+    int setBoardConnection(UUID houseId, UUID boardDeviceId, DeviceConnectionEnum connection);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE DeviceEntity d SET d.connection = :connection, "
+            + "d.lastSeenAt = CASE WHEN :seen = true THEN :now ELSE d.lastSeenAt END "
+            + "WHERE d.house.id = :houseId AND d.boardId = :boardId")
+    int setConnectionByBoardId(UUID houseId, String boardId, DeviceConnectionEnum connection, boolean seen, Instant now);
 }

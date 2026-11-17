@@ -194,3 +194,12 @@ CREATE INDEX idx_refresh_token_expires_at ON refresh_token (expires_at);
 
 --rollback DROP INDEX idx_refresh_token_expires_at;
 --rollback ALTER TABLE refresh_token DROP COLUMN replaced_by_id;
+
+--changeset brendan:015-add-device-connection
+-- Whether the device is reachable, kept apart from status so an offline device still has its last known position.
+-- NULL means nothing has been heard yet.
+ALTER TABLE devices ADD COLUMN connection VARCHAR(10);
+ALTER TABLE devices ADD COLUMN last_seen_at TIMESTAMP(6);
+
+--rollback ALTER TABLE devices DROP COLUMN last_seen_at;
+--rollback ALTER TABLE devices DROP COLUMN connection;

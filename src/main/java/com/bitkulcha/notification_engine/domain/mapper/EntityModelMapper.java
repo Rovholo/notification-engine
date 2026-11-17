@@ -56,6 +56,8 @@ public final class EntityModelMapper {
                 .boardId(Optional.ofNullable(device.getBoardId()))
                 .notifyStatus(Optional.ofNullable(device.getNotifyStatus()))
                 .notifyConnection(Optional.ofNullable(device.getNotifyConnection()))
+                .connection(Optional.ofNullable(device.getConnection()))
+                .lastSeenAt(Optional.ofNullable(device.getLastSeenAt()))
                 .build();
     }
 

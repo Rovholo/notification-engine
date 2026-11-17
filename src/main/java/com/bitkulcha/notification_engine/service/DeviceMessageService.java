@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 @Slf4j
 @Service
@@ -29,6 +30,11 @@ public class DeviceMessageService {
     static final String CONNECTION_KEY = "connection";
     static final String PREV_STATUS_KEY = "prevStatus";
     static final String TIME_KEY = "ts";
+    static final String HOME = "home";
+    static final String SHELLY = "shelly";
+    static final String SHELLY_ONLINE = "online";
+    static final String SHELLY_IS_ONLINE = "true";
+    static final String SHELLY_IS_OFFLINE = "false";
     static final Duration FRESH_TIME = Duration.ofMinutes(5);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -53,8 +59,14 @@ public class DeviceMessageService {
     public void handleMessage(String topic, Object payload, boolean retained) {
         log.debug("Message received : {} {} retained {}", topic, payload, retained);
         if (topic == null) return;
+        // An empty retained message is how a device clears its last state from the broker.
+        if (payload instanceof String text && text.isEmpty()) return;
         String[] tokens = topic.split("/");
-        if (tokens.length != 4 || !"home".equals(tokens[0])) return;
+        if (tokens.length == 5 && HOME.equals(tokens[0]) && SHELLY.equals(tokens[2]) && SHELLY_ONLINE.equals(tokens[4])) {
+            handleShellyOnline(tokens[1], tokens[3], payload, retained);
+            return;
+        }
+        if (tokens.length != 4 || !HOME.equals(tokens[0])) return;
         UUID houseId;
         UUID deviceId;
         Map<String, Object> message;
@@ -74,9 +86,11 @@ public class DeviceMessageService {
                     return;
                 }
                 if (OFFLINE.equals(message.get("status"))) {
+                    markBoardOffline(houseId, deviceId);
                     if (!retained) notifyBoard(houseId, deviceId, OFFLINE);
                     return;
                 }
+                markOnline(houseId, deviceId, retained);
                 if (CONNECT.equals(message.get("mode")) && !retained) {
                     activateConnectedDevice(houseId, deviceId);
                     notify(houseId, deviceId, ONLINE, CONNECTION_KEY);
@@ -86,6 +100,7 @@ public class DeviceMessageService {
             // Devices on firmware from before the state topic, until they are all reflashed.
             case "reaction" -> {
                 if (retained) return;
+                markOnline(houseId, deviceId, false);
                 if (message.get(PREV_STATUS_KEY) != null) recordStatus(houseId, deviceId, message, false);
                 if (START.equals(message.get("mode"))) {
                     activateConnectedDevice(houseId, deviceId);
@@ -93,10 +108,60 @@ public class DeviceMessageService {
                 }
             }
             case "will" -> {
-                if (!retained) notify(houseId, deviceId,
-                        ONLINE.equals(message.get("status")) ? ONLINE : OFFLINE, CONNECTION_KEY);
+                boolean online = ONLINE.equals(message.get("status"));
+                if (online) {
+                    markOnline(houseId, deviceId, retained);
+                } else {
+                    markBoardOffline(houseId, deviceId);
+                }
+                if (!retained) notify(houseId, deviceId, online ? ONLINE : OFFLINE, CONNECTION_KEY);
             }
             default -> { }
+        }
+    }
+
+    /**
+     * Shelly firmware keeps a retained true or false on its own online topic, with false as its last will. Coming
+     * online is already announced by the script's connect state, so only going offline is pushed here.
+     */
+    private void handleShellyOnline(String house, String shellyId, Object payload, boolean retained) {
+        UUID houseId;
+        try {
+            houseId = UUID.fromString(house);
+        } catch (IllegalArgumentException e) {
+            log.error("Error reading Shelly online message for house {}", house, e);
+            return;
+        }
+        String value = payload == null ? "" : payload.toString().trim();
+        if (!SHELLY_IS_ONLINE.equals(value) && !SHELLY_IS_OFFLINE.equals(value)) {
+            log.warn("Ignoring Shelly online message {} for {} in house {}", value, shellyId, houseId);
+            return;
+        }
+        boolean online = SHELLY_IS_ONLINE.equals(value);
+        try {
+            homeQService.recordShellyConnection(houseId, shellyId, online, clock.instant());
+        } catch (Exception e) {
+            log.error("Error recording connection of Shelly {} in house {}", shellyId, houseId, e);
+        }
+        if (!online && !retained) {
+            String boardId = HomeQService.SHELLY_BOARD_PREFIX + shellyId;
+            notifyDevices(houseId, d -> d.getBoardId().filter(boardId::equals).isPresent(), OFFLINE, shellyId);
+        }
+    }
+
+    private void markOnline(UUID houseId, UUID deviceId, boolean retained) {
+        try {
+            homeQService.markOnline(houseId, deviceId, retained, clock.instant());
+        } catch (Exception e) {
+            log.error("Error recording device {} in house {} as online", deviceId, houseId, e);
+        }
+    }
+
+    private void markBoardOffline(UUID houseId, UUID deviceId) {
+        try {
+            homeQService.markBoardOffline(houseId, deviceId);
+        } catch (Exception e) {
+            log.error("Error recording board {} in house {} as offline", deviceId, houseId, e);
         }
     }
 
@@ -147,20 +212,24 @@ public class DeviceMessageService {
 
     // A board has one last will, on its first channel, so going offline covers every channel on the board.
     private void notifyBoard(UUID houseId, UUID deviceId, String status) {
+        notifyDevices(houseId,
+                d -> d.getId().equals(deviceId) || d.getHardwareId().filter(deviceId::equals).isPresent(),
+                status, deviceId);
+    }
+
+    private void notifyDevices(UUID houseId, Predicate<DeviceModel> onBoard, String status, Object board) {
         try {
             HouseModel house = homeQService.findHouse(houseId).orElse(null);
-            List<DeviceModel> devices = house == null ? List.of() : house.getDevices().stream()
-                    .filter(d -> d.getId().equals(deviceId) || d.getHardwareId().filter(deviceId::equals).isPresent())
-                    .toList();
+            List<DeviceModel> devices = house == null ? List.of() : house.getDevices().stream().filter(onBoard).toList();
             if (devices.isEmpty()) {
-                log.warn("Not notifying {} for unknown device {} in house {}", status, deviceId, houseId);
+                log.warn("Not notifying {} for unknown device {} in house {}", status, board, houseId);
                 return;
             }
             for (DeviceModel device : devices) {
                 send(house, device, status, CONNECTION_KEY);
             }
         } catch (Exception e) {
-            log.error("Error notifying {} for board {} in house {}", status, deviceId, houseId, e);
+            log.error("Error notifying {} for board {} in house {}", status, board, houseId, e);
         }
     }
 

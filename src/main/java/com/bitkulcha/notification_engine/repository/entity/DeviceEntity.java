@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.repository.entity;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceConnectionEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.github.f4b6a3.uuid.UuidCreator;
@@ -20,6 +21,7 @@ import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -70,6 +72,14 @@ public class DeviceEntity {
 
     @Column(name = "notify_connection")
     private Boolean notifyConnection;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "connection", length = 10)
+    private DeviceConnectionEnum connection;
+
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
+    @Column(name = "last_seen_at")
+    private Instant lastSeenAt;
 
     @LastModifiedBy
     @JdbcTypeCode(SqlTypes.VARCHAR)

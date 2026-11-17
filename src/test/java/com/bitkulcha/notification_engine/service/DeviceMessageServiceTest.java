@@ -27,6 +27,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -342,6 +343,94 @@ class DeviceMessageServiceTest {
 
         verify(homeQService, times(2)).markDeviceReset(houseId, deviceId);
         verify(firebaseService, never()).sendMessage(anyList(), any());
+    }
+
+    @Test
+    void handleMessage_liveState_marksTheDeviceOnline() {
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"closed\"}");
+
+        verify(homeQService).markOnline(houseId, deviceId, false, Instant.ofEpochSecond(now));
+        verify(homeQService, never()).markBoardOffline(any(), any());
+    }
+
+    @Test
+    void handleMessage_retainedState_letsTheServiceDecideWhetherItProvesOnline() {
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"closed\"}", true);
+
+        verify(homeQService).markOnline(houseId, deviceId, true, Instant.ofEpochSecond(now));
+    }
+
+    @Test
+    void handleMessage_lastWill_marksTheBoardOfflineAndKeepsItsStatus() {
+        givenDeviceNamed("Gate");
+
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"offline\"}");
+
+        verify(homeQService).markBoardOffline(houseId, deviceId);
+        verify(homeQService, never()).recordStatus(any(), any(), any());
+        verify(homeQService, never()).markOnline(any(), any(), anyBoolean(), any());
+        verifyPushed("Your Gate is offline", deviceId + "-connection");
+    }
+
+    @Test
+    void handleMessage_retainedLastWill_marksTheBoardOfflineWithoutAPush() {
+        deviceMessageService.handleMessage(stateTopic, "{\"status\":\"offline\"}", true);
+
+        verify(homeQService).markBoardOffline(houseId, deviceId);
+        verify(firebaseService, never()).sendMessage(anyList(), any());
+    }
+
+    @Test
+    void handleMessage_shellyOffline_recordsItAndNotifiesEveryChannel() {
+        when(homeQService.findHouse(houseId)).thenReturn(Optional.of(house(List.of(
+                shellyChannel(deviceId, "Gate", "shelly:abc123"),
+                shellyChannel(UuidCreator.getTimeOrderedEpoch(), "Other", "shelly:other")))));
+
+        deviceMessageService.handleMessage(shellyOnlineTopic("abc123"), "false");
+
+        verify(homeQService).recordShellyConnection(houseId, "abc123", false, Instant.ofEpochSecond(now));
+        verifyPushed("Your Gate is offline", deviceId + "-connection");
+    }
+
+    @Test
+    void handleMessage_shellyOnline_recordsItWithoutAPush() {
+        deviceMessageService.handleMessage(shellyOnlineTopic("abc123"), "true");
+        deviceMessageService.handleMessage(shellyOnlineTopic("abc123"), "false", true);
+
+        verify(homeQService).recordShellyConnection(houseId, "abc123", true, Instant.ofEpochSecond(now));
+        verify(homeQService).recordShellyConnection(houseId, "abc123", false, Instant.ofEpochSecond(now));
+        verify(firebaseService, never()).sendMessage(anyList(), any());
+    }
+
+    @Test
+    void handleMessage_shellyOnlineWithUnexpectedPayload_isIgnored() {
+        deviceMessageService.handleMessage(shellyOnlineTopic("abc123"), "{\"online\":true}");
+        deviceMessageService.handleMessage("home/not-a-uuid/shelly/abc123/online", "true");
+
+        verify(homeQService, never()).recordShellyConnection(any(), any(), anyBoolean(), any());
+    }
+
+    @Test
+    void handleMessage_emptyRetainedState_isIgnored() {
+        deviceMessageService.handleMessage(stateTopic, "", true);
+
+        verify(homeQService, never()).markOnline(any(), any(), anyBoolean(), any());
+        verify(homeQService, never()).markBoardOffline(any(), any());
+        verify(homeQService, never()).recordStatus(any(), any(), any());
+    }
+
+    private String shellyOnlineTopic(String shellyId) {
+        return "home/" + houseId + "/shelly/" + shellyId + "/online";
+    }
+
+    private static DeviceModel shellyChannel(UUID id, String name, String boardId) {
+        return DeviceModelImmtbl.builder()
+                .id(id)
+                .name(name)
+                .type(DeviceTypeEnum.GARAGE_DOOR)
+                .setupStatus(DeviceSetupStatusEnum.ACTIVE)
+                .boardId(boardId)
+                .build();
     }
 
     private void givenStatusChange(String status, StatusChangeEnum change) {

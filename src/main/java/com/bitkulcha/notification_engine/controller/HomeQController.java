@@ -11,6 +11,7 @@ import com.bitkulcha.notification_engine.model.AddResidentRequestDto;
 import com.bitkulcha.notification_engine.model.ClaimDeviceSecretRequestDto;
 import com.bitkulcha.notification_engine.model.CreateDeviceRequestDto;
 import com.bitkulcha.notification_engine.model.CreateHouseRequestDto;
+import com.bitkulcha.notification_engine.model.DeviceConnectionDto;
 import com.bitkulcha.notification_engine.model.DeviceDto;
 import com.bitkulcha.notification_engine.model.DeviceSetupStatusDto;
 import com.bitkulcha.notification_engine.model.DeviceTypeDto;
@@ -24,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -120,6 +122,8 @@ public class HomeQController implements HomeqApi {
                 .channel(device.getChannel().orElse(null))
                 .boardId(device.getBoardId().orElse(null))
                 .notifyStatus(device.notifiesStatus())
-                .notifyConnection(device.notifiesConnection());
+                .notifyConnection(device.notifiesConnection())
+                .connection(device.getConnection().map(c -> DeviceConnectionDto.fromValue(c.name())).orElse(null))
+                .lastSeenAt(device.getLastSeenAt().map(t -> t.atOffset(ZoneOffset.UTC)).orElse(null));
     }
 }

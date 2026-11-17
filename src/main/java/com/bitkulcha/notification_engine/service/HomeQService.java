@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.service;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceConnectionEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.enums.StatusChangeEnum;
@@ -24,6 +25,7 @@ import com.bitkulcha.notification_engine.repository.entity.UserEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -32,6 +34,8 @@ import java.util.UUID;
 
 @Service
 public class HomeQService {
+
+    public static final String SHELLY_BOARD_PREFIX = "shelly:";
 
     final HouseRepository houseRepository;
     final UserRepository userRepository;
@@ -195,6 +199,34 @@ public class HomeQService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    /**
+     * Records that a device was just heard from. A retained message may be old, so it only counts for the first
+     * channel of a board that has a last will on that topic: the broker would have replaced it with the will had the
+     * board dropped since. Shelly boards report their connection on their own topic instead.
+     */
+    @Transactional
+    public void markOnline(UUID houseId, UUID deviceId, boolean retained, Instant now) {
+        if (!retained) {
+            deviceRepository.markOnline(houseId, deviceId, DeviceConnectionEnum.ONLINE, now);
+            return;
+        }
+        deviceRepository.findInHouse(houseId, deviceId)
+                .filter(device -> device.getHardwareId() == null || device.getHardwareId().equals(device.getId()))
+                .filter(device -> device.getBoardId() == null || !device.getBoardId().startsWith(SHELLY_BOARD_PREFIX))
+                .ifPresent(device -> deviceRepository.setBoardConnection(houseId, deviceId, DeviceConnectionEnum.ONLINE));
+    }
+
+    @Transactional
+    public void markBoardOffline(UUID houseId, UUID boardDeviceId) {
+        deviceRepository.setBoardConnection(houseId, boardDeviceId, DeviceConnectionEnum.OFFLINE);
+    }
+
+    @Transactional
+    public void recordShellyConnection(UUID houseId, String shellyId, boolean online, Instant now) {
+        deviceRepository.setConnectionByBoardId(houseId, SHELLY_BOARD_PREFIX + shellyId,
+                online ? DeviceConnectionEnum.ONLINE : DeviceConnectionEnum.OFFLINE, online, now);
     }
 
     @Transactional(readOnly = true)

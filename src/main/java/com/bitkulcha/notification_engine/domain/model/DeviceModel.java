@@ -1,9 +1,11 @@
 package com.bitkulcha.notification_engine.domain.model;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceConnectionEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import org.immutables.value.Value;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,6 +22,8 @@ public interface DeviceModel {
     Optional<String> getBoardId();
     Optional<Boolean> getNotifyStatus();
     Optional<Boolean> getNotifyConnection();
+    Optional<DeviceConnectionEnum> getConnection();
+    Optional<Instant> getLastSeenAt();
 
     default boolean notifiesStatus() {
         return getNotifyStatus().orElse(getType().notifiesByDefault());

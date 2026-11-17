@@ -1,5 +1,6 @@
 package com.bitkulcha.notification_engine.service;
 
+import com.bitkulcha.notification_engine.domain.enums.DeviceConnectionEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceSetupStatusEnum;
 import com.bitkulcha.notification_engine.domain.enums.DeviceTypeEnum;
 import com.bitkulcha.notification_engine.domain.enums.StatusChangeEnum;
@@ -20,7 +21,11 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -249,7 +254,7 @@ class HomeQServiceIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(homeQService.findHouse(house.getId()).orElseThrow().getDevices().get(0).getBoardId())
+        assertThat(homeQService.findHouse(house.getId()).orElseThrow().getDevices().getFirst().getBoardId())
                 .contains(board);
     }
 
@@ -267,7 +272,7 @@ class HomeQServiceIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        DeviceModel reset = homeQService.findHouse(house.getId()).orElseThrow().getDevices().get(0);
+        DeviceModel reset = homeQService.findHouse(house.getId()).orElseThrow().getDevices().getFirst();
         assertThat(reset.getSetupStatus()).isEqualTo(DeviceSetupStatusEnum.ADDED);
         assertThat(reset.getStatus()).contains("offline");
         assertThat(homeQService.recordStatus(house.getId(), garage, "closed")).isEqualTo(StatusChangeEnum.FIRST);
@@ -290,6 +295,63 @@ class HomeQServiceIntegrationTest {
         assertThat(enabled.notifiesStatus()).isTrue();
         assertThat(renamed.notifiesStatus()).isTrue();
         assertThat(renamed.notifiesConnection()).isFalse();
+    }
+
+    @Test
+    void connection_isRecordedForBoardsAndShellys() {
+        UUID aliceId = userRepository.save(newUser("Alice")).getId();
+        HouseModel house = homeQService.createHouse(aliceId, "Greenwood Manor");
+        UUID first = UuidCreator.getTimeOrderedEpoch();
+        UUID second = UuidCreator.getTimeOrderedEpoch();
+        UUID shelly = UuidCreator.getTimeOrderedEpoch();
+        homeQService.addDevice(aliceId, house.getId(), first, "Gate", DeviceTypeEnum.GARAGE_DOOR, "closed",
+                DeviceSetupStatusEnum.ACTIVE, null, first, 0, "a1b2c3d4e5f6");
+        homeQService.addDevice(aliceId, house.getId(), second, "Porch", DeviceTypeEnum.LIGHT, "on",
+                DeviceSetupStatusEnum.ACTIVE, null, first, 1, "a1b2c3d4e5f6");
+        homeQService.addDevice(aliceId, house.getId(), shelly, "Garage", DeviceTypeEnum.GARAGE_DOOR, "closed",
+                DeviceSetupStatusEnum.ACTIVE, null, null, null, "shelly:abc123");
+        entityManager.flush();
+        Instant seen = Instant.parse("2026-11-17T08:00:00Z");
+
+        homeQService.markOnline(house.getId(), second, false, seen);
+        assertThat(connections(house)).containsEntry(second, DeviceConnectionEnum.ONLINE);
+        assertThat(device(house, second).getLastSeenAt()).contains(seen);
+
+        homeQService.markBoardOffline(house.getId(), first);
+        assertThat(connections(house))
+                .containsEntry(first, DeviceConnectionEnum.OFFLINE)
+                .containsEntry(second, DeviceConnectionEnum.OFFLINE);
+        assertThat(device(house, second).getStatus()).contains("on");
+
+        homeQService.markOnline(house.getId(), second, true, seen);
+        homeQService.markOnline(house.getId(), shelly, true, seen);
+        assertThat(connections(house)).containsEntry(second, DeviceConnectionEnum.OFFLINE).doesNotContainKey(shelly);
+
+        homeQService.markOnline(house.getId(), first, true, seen);
+        assertThat(connections(house))
+                .containsEntry(first, DeviceConnectionEnum.ONLINE)
+                .containsEntry(second, DeviceConnectionEnum.ONLINE);
+
+        homeQService.recordShellyConnection(house.getId(), "abc123", false, seen);
+        assertThat(connections(house)).containsEntry(shelly, DeviceConnectionEnum.OFFLINE);
+        assertThat(device(house, shelly).getLastSeenAt()).isEmpty();
+        homeQService.recordShellyConnection(house.getId(), "abc123", true, seen);
+        assertThat(connections(house)).containsEntry(shelly, DeviceConnectionEnum.ONLINE);
+        assertThat(device(house, shelly).getLastSeenAt()).contains(seen);
+    }
+
+    private Map<UUID, DeviceConnectionEnum> connections(HouseModel house) {
+        entityManager.clear();
+        return homeQService.findHouse(house.getId()).orElseThrow().getDevices().stream()
+                .filter(d -> d.getConnection().isPresent())
+                .collect(Collectors.toMap(DeviceModel::getId, d -> d.getConnection().orElseThrow()));
+    }
+
+    private DeviceModel device(HouseModel house, UUID deviceId) {
+        entityManager.clear();
+        return homeQService.findHouse(house.getId()).orElseThrow().getDevices().stream()
+                .collect(Collectors.toMap(DeviceModel::getId, Function.identity()))
+                .get(deviceId);
     }
 
     private UserEntity newUser(String name) {

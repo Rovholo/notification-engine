@@ -328,6 +328,19 @@ components:
         notifyConnection:
           type: boolean
           description: Whether owners get a push when the device goes online or offline. Same defaults as notifyStatus.
+        connection:
+          $ref: '#/components/schemas/DeviceConnection'
+        lastSeenAt:
+          type: string
+          format: date-time
+          description: When a live message from the device last arrived. Missing until one has.
+
+    DeviceConnection:
+      type: string
+      description: >
+        Whether the device is reachable, kept apart from status so an offline device keeps its last known status.
+        Missing when nothing has been heard from the device yet.
+      enum: [ONLINE, OFFLINE]
 
     DeviceType:
       type: string
